@@ -4,6 +4,8 @@ Local-first AI recruiting platform. Discover candidates from academic labs and i
 
 ![Pool Dashboard](docs/pool-dashboard.png)
 
+![Candidate Detail & Outreach](docs/person-detail.png)
+
 ## What It Does
 
 ```
