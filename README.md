@@ -1,5 +1,7 @@
 # Recruiting Any
 
+[中文版](README_CN.md)
+
 Local-first AI recruiting platform. Discover candidates from academic labs and industry, manage a unified talent pool, and generate personalized outreach — all from your browser.
 
 ![Pool Dashboard](docs/pool-dashboard.png)
