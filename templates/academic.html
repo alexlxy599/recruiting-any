@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Academic Talent Pool</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --border: #e4e6ea;
+      --text-primary: #1a1a1a;
+      --text-secondary: #4a4a4a;
+      --text-tertiary: #8a8a8a;
+      --accent: #3d5a80;
+      --accent-hover: #2c4a6e;
+      --accent-light: #e8eef6;
+      --nav-bg: #2b3a4e;
+      --tag-bg: #f0f1f3;
+      --tag-text: #555;
+      --radius: 8px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: var(--nav-bg);
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand { color: #fff; font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
+    .nav-links { display: flex; gap: 4px; margin-left: 24px; }
+    .nav-link {
+      color: rgba(255,255,255,0.65);
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-link:hover { color: white; background: rgba(255,255,255,0.1); }
+    .nav-link.active { color: white; background: rgba(255,255,255,0.14); font-weight: 600; }
+
+    .container { max-width: 1280px; margin: 0 auto; padding: 24px 32px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+    .card-body { padding: 16px 20px; }
+
+    /* Filters bar */
+    .filters-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 14px 20px;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .filter-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .filter-input, .filter-select {
+      font-family: inherit;
+      font-size: 0.8rem;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--text-primary);
+      min-width: 120px;
+    }
+    .filter-input:focus, .filter-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-light);
+    }
+    .filter-input.search-input { min-width: 200px; }
+
+    .btn {
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 7px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--tag-bg); color: var(--text-secondary); }
+    .btn-secondary:hover { background: #e4e5e7; }
+    .btn-sm { padding: 4px 10px; font-size: 0.72rem; }
+    .btn-danger { background: #fee; color: #e53e3e; opacity: 0; transition: opacity 0.15s; }
+    .btn-danger:hover { background: #fdd; }
+    tr:hover .btn-danger { opacity: 1; }
+
+    /* View toggle */
+    .view-toggle {
+      display: flex;
+      gap: 2px;
+      background: var(--tag-bg);
+      border-radius: 6px;
+      padding: 2px;
+    }
+    .view-btn {
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 5px 14px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-tertiary);
+      transition: all 0.15s;
+    }
+    .view-btn.active { background: var(--surface); color: var(--text-primary); font-weight: 600; box-shadow: var(--shadow); }
+
+    /* Stats */
+    .stats-bar {
+      display: flex;
+      gap: 20px;
+      padding: 12px 20px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat strong { color: var(--text-primary); }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-tertiary);
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+    tr:hover { background: #fafbfc; }
+
+    .name-cell {
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+    .name-cell a { color: var(--accent); text-decoration: none; }
+    .name-cell a:hover { text-decoration: underline; }
+
+    .badge-role {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+    .badge-status {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.68rem;
+      font-weight: 600;
+    }
+    .badge-status.new { background: #e6f7ee; color: #1a7f4b; }
+    .badge-status.contacted { background: #e8eef6; color: #3d5a80; }
+    .badge-status.replied { background: #fef3e2; color: #b45309; }
+    .badge-status.interview { background: #f3e8ff; color: #7c3aed; }
+
+    .area-chip {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      margin: 1px 2px;
+    }
+
+    /* Advisor group view */
+    .advisor-group {
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .advisor-group-header {
+      padding: 12px 16px;
+      background: var(--accent-light);
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .advisor-group-header .count {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-tertiary);
+    }
+    .advisor-group-body { padding: 0; }
+    .advisor-member {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+    .advisor-member:last-child { border-bottom: none; }
+    .advisor-member:hover { background: #fafbfc; }
+    .advisor-member .member-name {
+      font-weight: 500;
+      color: var(--text-primary);
+      min-width: 140px;
+    }
+    .advisor-member .member-name a { color: var(--accent); text-decoration: none; }
+    .advisor-member .member-name a:hover { text-decoration: underline; }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    /* Status dropdown */
+    .status-select {
+      font-family: inherit;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-tertiary);
+    }
+    .empty-state p { font-size: 0.85rem; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="nav-brand">Talent Pool</span>
+  <nav class="nav-links">
+    <a href="/discover" class="nav-link">Discover</a>
+    <a href="/pool" class="nav-link active">Pool</a>
+    <a href="/outreach" class="nav-link">Outreach</a>
+  </nav>
+</header>
+
+<div class="container">
+
+  <!-- Filters -->
+  <div class="card">
+    <div class="filters-bar">
+      <div class="filter-group">
+        <span class="filter-label">Search</span>
+        <input type="text" id="f-search" class="filter-input search-input" placeholder="Name, research area..." />
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Institution</span>
+        <select id="f-institution" class="filter-select"><option value="">All</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Advisor</span>
+        <select id="f-advisor" class="filter-select"><option value="">All</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Role</span>
+        <select id="f-role" class="filter-select"><option value="">All</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Grad Year</span>
+        <div style="display:flex;gap:4px;">
+          <input type="number" id="f-grad-min" class="filter-input" placeholder="From" style="min-width:70px;width:70px;" />
+          <input type="number" id="f-grad-max" class="filter-input" placeholder="To" style="min-width:70px;width:70px;" />
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Status</span>
+        <select id="f-status" class="filter-select">
+          <option value="">All</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="replied">Replied</option>
+          <option value="interview">Interview</option>
+        </select>
+      </div>
+      <div class="filter-group" style="align-self:flex-end;">
+        <button class="btn btn-primary" onclick="loadPeople()">Search</button>
+      </div>
+      <div class="filter-group" style="align-self:flex-end;">
+        <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+      </div>
+      <div style="flex:1;"></div>
+      <div class="filter-group" style="align-self:flex-end;">
+        <div class="view-toggle">
+          <button class="view-btn active" id="view-list" onclick="setView('list')">List</button>
+          <button class="view-btn" id="view-group" onclick="setView('group')">By Advisor</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <div class="stats-bar" id="stats-bar">
+      <span>Loading...</span>
+    </div>
+
+    <!-- List View -->
+    <div id="list-view">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Advisor</th>
+              <th>Institution</th>
+              <th>Research Area</th>
+              <th>Grad</th>
+              <th>Status</th>
+              <th>Email</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="people-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- Group View -->
+    <div id="group-view" style="display:none;">
+      <div class="card-body" id="group-container"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+let currentView = 'list';
+let currentPage = 0;
+const PAGE_SIZE = 50;
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escAttr(s) { return s.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+async function loadFilters() {
+  try {
+    const res = await fetch('/api/academic/filters');
+    const data = await res.json();
+    populateSelect('f-institution', data.institutions || []);
+    populateSelect('f-advisor', data.advisors || []);
+    populateSelect('f-role', data.roles || []);
+  } catch(e) { console.error('Failed to load filters', e); }
+}
+
+function populateSelect(id, items) {
+  const sel = document.getElementById(id);
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All</option>' +
+    items.map(i => `<option value="${escAttr(i)}">${escHtml(i)}</option>`).join('');
+  sel.value = current;
+}
+
+function getFilters() {
+  return {
+    q: document.getElementById('f-search').value.trim(),
+    institution: document.getElementById('f-institution').value,
+    advisor: document.getElementById('f-advisor').value,
+    role: document.getElementById('f-role').value,
+    grad_min: document.getElementById('f-grad-min').value,
+    grad_max: document.getElementById('f-grad-max').value,
+    status: document.getElementById('f-status').value,
+  };
+}
+
+function clearFilters() {
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-institution').value = '';
+  document.getElementById('f-advisor').value = '';
+  document.getElementById('f-role').value = '';
+  document.getElementById('f-grad-min').value = '';
+  document.getElementById('f-grad-max').value = '';
+  document.getElementById('f-status').value = '';
+  currentPage = 0;
+  loadPeople();
+}
+
+async function loadPeople() {
+  const filters = getFilters();
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) {
+    if (v) params.set(k, v);
+  }
+  params.set('limit', PAGE_SIZE);
+  params.set('offset', currentPage * PAGE_SIZE);
+
+  if (currentView === 'group') params.set('group_by', 'advisor');
+
+  try {
+    const res = await fetch('/api/academic/people?' + params.toString());
+    const data = await res.json();
+
+    if (currentView === 'group') {
+      renderGroupView(data.groups || {}, data.total);
+    } else {
+      renderListView(data.people || [], data.total);
+    }
+  } catch(e) {
+    console.error('Failed to load people', e);
+    document.getElementById('stats-bar').innerHTML = '<span style="color:#e53e3e;">Failed to load data</span>';
+  }
+}
+
+function renderListView(people, total) {
+  const statsBar = document.getElementById('stats-bar');
+  statsBar.innerHTML = `
+    <span><strong>${total}</strong> academic candidates</span>
+    <span>Page <strong>${currentPage + 1}</strong> of <strong>${Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong></span>
+  `;
+
+  const tbody = document.getElementById('people-tbody');
+  if (!people.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><p>No academic candidates found. Import from Lab Sourcer first.</p></div></td></tr>`;
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = people.map(p => {
+    const name = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+    const roleHtml = p.title ? `<span class="badge-role">${escHtml(p.title)}</span>` : '';
+    const areaHtml = p.research_area
+      ? p.research_area.split(/[,;]/).slice(0, 3).map(a => `<span class="area-chip">${escHtml(a.trim())}</span>`).join('')
+      : '';
+    const gradHtml = p.expected_graduation ? `<strong>${p.expected_graduation}</strong>` : '<span style="color:var(--text-tertiary);">-</span>';
+    const status = p.status || 'new';
+    const statusHtml = `<select class="status-select" onchange="updateStatus(${p.id}, this.value)">
+      <option value="new"${status === 'new' ? ' selected' : ''}>New</option>
+      <option value="contacted"${status === 'contacted' ? ' selected' : ''}>Contacted</option>
+      <option value="replied"${status === 'replied' ? ' selected' : ''}>Replied</option>
+      <option value="interview"${status === 'interview' ? ' selected' : ''}>Interview</option>
+    </select>`;
+    const emailHtml = p.email ? `<a href="mailto:${escAttr(p.email)}" style="color:var(--accent);font-size:0.75rem;">${escHtml(p.email)}</a>` : '';
+
+    return `<tr>
+      <td class="name-cell"><a href="/people/${p.id}">${escHtml(name)}</a></td>
+      <td>${roleHtml}</td>
+      <td>${escHtml(p.advisor || '')}</td>
+      <td>${escHtml(p.institution || '')}</td>
+      <td>${areaHtml}</td>
+      <td style="white-space:nowrap;">${gradHtml}</td>
+      <td>${statusHtml}</td>
+      <td style="white-space:nowrap;">${emailHtml}</td>
+      <td style="white-space:nowrap;">
+        <a href="/people/${p.id}" class="btn btn-secondary btn-sm">View</a>
+        <button class="btn btn-danger btn-sm" onclick="deletePerson(${p.id}, '${escAttr(name)}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  renderPagination(total);
+}
+
+function renderGroupView(groups, total) {
+  const statsBar = document.getElementById('stats-bar');
+  const advisorCount = Object.keys(groups).length;
+  statsBar.innerHTML = `
+    <span><strong>${total}</strong> academic candidates</span>
+    <span><strong>${advisorCount}</strong> advisors</span>
+  `;
+
+  const container = document.getElementById('group-container');
+  if (!advisorCount) {
+    container.innerHTML = '<div class="empty-state"><p>No academic candidates found.</p></div>';
+    return;
+  }
+
+  // Sort advisors by member count descending
+  const sorted = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+
+  container.innerHTML = sorted.map(([advisor, members]) => {
+    const membersHtml = members.map(p => {
+      const name = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+      const roleHtml = p.title ? `<span class="badge-role">${escHtml(p.title)}</span>` : '';
+      const areaHtml = p.research_area
+        ? p.research_area.split(/[,;]/).slice(0, 2).map(a => `<span class="area-chip">${escHtml(a.trim())}</span>`).join('')
+        : '';
+      const grad = p.expected_graduation ? `<span style="color:var(--text-tertiary);font-size:0.75rem;">${p.expected_graduation}</span>` : '';
+      const status = p.status || 'new';
+
+      return `<div class="advisor-member">
+        <span class="member-name"><a href="/people/${p.id}">${escHtml(name)}</a></span>
+        ${roleHtml}
+        ${areaHtml}
+        ${grad}
+        <span class="badge-status ${status}">${status}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="advisor-group">
+      <div class="advisor-group-header">
+        ${escHtml(advisor)}
+        <span class="count">${members.length} member${members.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="advisor-group-body">${membersHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPagination(total) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const el = document.getElementById('pagination');
+  if (pages <= 1) { el.innerHTML = ''; return; }
+
+  let html = '';
+  if (currentPage > 0) html += `<button class="btn btn-secondary btn-sm" onclick="goPage(${currentPage - 1})">Prev</button>`;
+  html += `<span>Page ${currentPage + 1} of ${pages}</span>`;
+  if (currentPage < pages - 1) html += `<button class="btn btn-secondary btn-sm" onclick="goPage(${currentPage + 1})">Next</button>`;
+  el.innerHTML = html;
+}
+
+function goPage(page) {
+  currentPage = page;
+  loadPeople();
+}
+
+function setView(view) {
+  currentView = view;
+  document.getElementById('view-list').classList.toggle('active', view === 'list');
+  document.getElementById('view-group').classList.toggle('active', view === 'group');
+  document.getElementById('list-view').style.display = view === 'list' ? '' : 'none';
+  document.getElementById('group-view').style.display = view === 'group' ? '' : 'none';
+  currentPage = 0;
+  loadPeople();
+}
+
+async function updateStatus(personId, status) {
+  try {
+    await fetch(`/api/academic/people/${personId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+  } catch(e) {
+    console.error('Failed to update status', e);
+  }
+}
+
+async function deletePerson(personId, name) {
+  if (!confirm(`Delete "${name}" from the academic talent pool?`)) return;
+  try {
+    const res = await fetch(`/api/academic/people/${personId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    loadPeople();
+  } catch(e) {
+    alert('Failed to delete: ' + e.message);
+  }
+}
+
+// Enter key in search triggers search
+document.getElementById('f-search').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadPeople();
+});
+
+// Init
+loadFilters();
+loadPeople();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ person.first_name }} {{ person.last_name }} — 人才库</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --text-primary: #1a1a1a;
+      --text-secondary: #4a4a4a;
+      --text-tertiary: #8a8a8a;
+      --border: #e4e6ea;
+      --accent: #3d5a80;
+      --accent-hover: #2c4a6e;
+      --accent-light: #e8eef6;
+      --accent-blue: #5a7de0;
+      --tag-bg: #f0f1f3;
+      --tag-text: #555;
+      --enriched-bg: #e8eef6;
+      --enriched-text: #3d5a80;
+      --nav-bg: #2b3a4e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--nav-bg);
+      color: white;
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-nav { display: flex; gap: 4px; }
+    .nav-link {
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .nav-link:hover { color: white; background: rgba(255,255,255,0.1); }
+    .header-right {
+      margin-left: auto;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.84rem;
+      font-weight: 500;
+    }
+
+    /* ── Three-column layout ── */
+    .layout {
+      display: flex;
+      gap: 20px;
+      padding: 20px 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+      align-items: flex-start;
+    }
+
+    .col-left {
+      width: 260px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 64px;
+      max-height: calc(100vh - 84px);
+      overflow-y: auto;
+    }
+
+    .col-center {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .col-right {
+      width: 300px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 64px;
+      max-height: calc(100vh - 84px);
+      overflow-y: auto;
+    }
+
+    /* Scrollbar styling for sticky columns */
+    .col-left::-webkit-scrollbar,
+    .col-right::-webkit-scrollbar { width: 3px; }
+    .col-left::-webkit-scrollbar-thumb,
+    .col-right::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .card-body { padding: 18px 20px; }
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 12px 20px 8px;
+    }
+    .sep {
+      height: 1px;
+      background: var(--border);
+      margin: 18px 0;
+    }
+
+    /* ── Left: Profile Card ── */
+    .profile-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .profile-name {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .profile-title {
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .profile-company {
+      font-size: 0.82rem;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    .profile-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .profile-link {
+      font-size: 0.76rem;
+      color: var(--accent-blue);
+      text-decoration: none;
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: all 0.15s;
+      font-weight: 500;
+    }
+    .profile-link:hover { background: var(--enriched-bg); border-color: var(--accent-blue); }
+
+    .info-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 3px;
+    }
+    .info-value {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .info-block { margin-bottom: 16px; }
+    .info-block:last-child { margin-bottom: 0; }
+
+    /* About collapse */
+    .about-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+    .about-text.expanded {
+      -webkit-line-clamp: unset;
+    }
+    .about-toggle {
+      font-size: 0.76rem;
+      color: var(--accent-blue);
+      cursor: pointer;
+      margin-top: 4px;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+    .about-toggle:hover { text-decoration: underline; }
+
+    /* Education in left column */
+    .edu-compact {
+      margin-bottom: 8px;
+    }
+    .edu-compact:last-child { margin-bottom: 0; }
+    .edu-school-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .edu-detail {
+      font-size: 0.78rem;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+
+    /* Tags */
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .tag-status {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+    }
+    .tag-enriched {
+      background: var(--enriched-bg);
+      color: var(--enriched-text);
+    }
+
+    /* ── Center: Experience Timeline ── */
+    .exp-list { list-style: none; }
+    .exp-item {
+      display: flex;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .exp-item:last-child { border-bottom: none; }
+    .exp-timeline {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 12px;
+      flex-shrink: 0;
+      padding-top: 5px;
+    }
+    .exp-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+      flex-shrink: 0;
+    }
+    .exp-dot.current { background: var(--accent-blue); }
+    .exp-line {
+      flex: 1;
+      width: 1.5px;
+      background: var(--border);
+      margin-top: 4px;
+    }
+    .exp-content { flex: 1; }
+    .exp-role {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .exp-org {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+    .exp-meta {
+      display: flex;
+      gap: 10px;
+      margin-top: 3px;
+      font-size: 0.76rem;
+      color: var(--text-tertiary);
+    }
+    .exp-desc {
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      margin-top: 8px;
+      white-space: pre-wrap;
+    }
+
+    /* ── Center: Enrich ── */
+    .enrich-textarea {
+      width: 100%;
+      min-height: 80px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+      color: var(--text-secondary);
+      transition: border-color 0.2s;
+    }
+    .enrich-textarea:focus { border-color: var(--accent-blue); }
+    .enrich-textarea::placeholder { color: #bbb; }
+    .enrich-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .enrich-status { font-size: 0.78rem; color: var(--text-tertiary); }
+    .enrich-status.success { color: #2e7d32; }
+    .enrich-status.error { color: #c0392b; }
+
+    /* ── Right: Generator ── */
+    .mode-group, .lang-group {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .mode-btn {
+      padding: 5px 11px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface);
+      font-size: 0.78rem;
+      font-family: inherit;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+    .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mode-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+    .gen-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+      margin-top: 10px;
+    }
+    .gen-label:first-child { margin-top: 0; }
+    .gen-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      outline: none;
+      color: var(--text-primary);
+      transition: border-color 0.2s;
+    }
+    .gen-input:focus { border-color: var(--accent-blue); }
+
+    .btn-primary {
+      width: 100%;
+      padding: 9px 16px;
+      border: none;
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      font-size: 0.82rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 12px;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-secondary {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-copy {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 5px;
+      background: var(--accent);
+      color: white;
+      font-size: 0.78rem;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .btn-copy:hover { opacity: 0.85; }
+
+    .gen-status {
+      padding: 8px 12px;
+      background: var(--bg);
+      border-radius: 5px;
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+      margin-top: 10px;
+    }
+
+    .gen-result-message {
+      font-size: 0.82rem;
+      line-height: 1.65;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      background: var(--surface);
+      min-height: 60px;
+      outline: none;
+      margin-top: 10px;
+    }
+    .gen-result-message:focus { border-color: var(--accent-blue); }
+
+    .gen-result-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      justify-content: flex-end;
+    }
+
+    /* ── Right: History ── */
+    .history-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .history-lang {
+      font-size: 0.66rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      font-weight: 500;
+    }
+    .history-time { font-size: 0.72rem; color: var(--text-tertiary); }
+    .history-message {
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      max-height: 80px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .empty-section {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-tertiary);
+      font-size: 0.82rem;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-tertiary);
+      text-decoration: none;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+    }
+    .back-link:hover { color: var(--text-primary); }
+
+    /* ── Responsive ── */
+    @media (max-width: 1200px) {
+      .col-right {
+        position: fixed;
+        right: -320px;
+        top: 48px;
+        width: 320px;
+        height: calc(100vh - 48px);
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        z-index: 99;
+        padding: 16px;
+        transition: right 0.3s ease;
+        max-height: none;
+        overflow-y: auto;
+      }
+      .col-right.open { right: 0; box-shadow: -4px 0 20px rgba(0,0,0,0.08); }
+      .fab-gen {
+        display: flex;
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: white;
+        border: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        cursor: pointer;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        z-index: 98;
+      }
+    }
+    @media (min-width: 1201px) {
+      .fab-gen { display: none; }
+    }
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; padding: 16px; }
+      .col-left, .col-right { width: 100%; position: static; max-height: none; }
+      .col-right { display: block; right: auto; position: static; border: none; padding: 0; }
+      .fab-gen { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <nav class="header-nav">
+    <a href="/discover" class="nav-link">Discover</a>
+    <a href="/pool" class="nav-link">Pool</a>
+    <a href="/outreach" class="nav-link">Outreach</a>
+  </nav>
+  <div class="header-right">{{ person.first_name }} {{ person.last_name }}</div>
+</header>
+
+<div class="layout">
+  <!-- ════ LEFT: Profile Card ════ -->
+  <div class="col-left">
+    <a class="back-link" href="/people">&larr; 返回列表</a>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="profile-avatar">{{ person.first_name[0] }}{{ person.last_name[0] if person.last_name else '' }}</div>
+        <div class="profile-name">{{ person.first_name }} {{ person.last_name }}</div>
+        {% if person.title %}
+        <div class="profile-title">{{ person.title }}</div>
+        {% endif %}
+        {% if person.company %}
+        <div class="profile-company">{{ person.company }}</div>
+        {% endif %}
+
+        <div class="sep"></div>
+
+        <div class="profile-links">
+          {% if person.linkedin_url %}
+          <a class="profile-link" href="{{ person.linkedin_url }}" target="_blank">LinkedIn</a>
+          {% endif %}
+          {% if person.github_url %}
+          <a class="profile-link" href="{{ person.github_url }}" target="_blank">GitHub</a>
+          {% endif %}
+          {% if person.email %}
+          <a class="profile-link" href="mailto:{{ person.email }}">{{ person.email }}</a>
+          {% endif %}
+        </div>
+
+        <div class="sep"></div>
+
+        {% if person.headline %}
+        <div class="info-block">
+          <div class="info-label">Headline</div>
+          <div class="info-value">{{ person.headline }}</div>
+        </div>
+        {% endif %}
+        {% if person.location %}
+        <div class="info-block">
+          <div class="info-label">Location</div>
+          <div class="info-value">{{ person.location }}</div>
+        </div>
+        {% endif %}
+        {% if person.industry %}
+        <div class="info-block">
+          <div class="info-label">About</div>
+          <div class="info-value about-text" id="about-text">{{ person.industry }}</div>
+          <button class="about-toggle" id="about-toggle" onclick="toggleAbout()" style="display:none;">展开</button>
+        </div>
+        {% endif %}
+
+        {% if person.educations %}
+        <div class="sep"></div>
+        <div class="info-label">Education</div>
+        {% for edu in person.educations %}
+        <div class="edu-compact">
+          <div class="edu-school-name">{{ edu.school }}</div>
+          <div class="edu-detail">
+            {{ edu.degree or '' }}{% if edu.field %} · {{ edu.field }}{% endif %}{% if edu.start_year or edu.end_year %} · {{ edu.start_year or '' }}{% if edu.end_year %}–{{ edu.end_year }}{% endif %}{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <div class="sep"></div>
+
+        <div class="tag-row">
+          {% if person.notes == 'linkedin_enriched' %}
+          <span class="tag tag-enriched">LinkedIn 已补充</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ CENTER: Experience + Enrich ════ -->
+  <div class="col-center">
+    <div class="card">
+      <div class="section-label">工作经历 ({{ person.experiences|length }})</div>
+      <div class="card-body">
+        {% if person.experiences %}
+        <ul class="exp-list">
+          {% for exp in person.experiences %}
+          <li class="exp-item">
+            <div class="exp-timeline">
+              <div class="exp-dot {{ 'current' if exp.is_current else '' }}"></div>
+              {% if not loop.last %}<div class="exp-line"></div>{% endif %}
+            </div>
+            <div class="exp-content">
+              <div class="exp-role">{{ exp.title }}</div>
+              <div class="exp-org">{{ exp.company }}</div>
+              {% if exp.start_date or exp.location %}
+              <div class="exp-meta">
+                {% if exp.start_date %}
+                <span>{{ exp.start_date }}{% if exp.end_date %} – {{ exp.end_date }}{% endif %}</span>
+                {% endif %}
+                {% if exp.location %}
+                <span>{{ exp.location }}</span>
+                {% endif %}
+              </div>
+              {% endif %}
+              {% if exp.description %}
+              <div class="exp-desc">{{ exp.description }}</div>
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-section">暂无工作经历</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">LinkedIn 补充</div>
+      <div class="card-body">
+        <textarea class="enrich-textarea" id="enrich-text" placeholder="打开 LinkedIn 页面 → 全选复制 → 粘贴到这里，AI 自动解析并补充档案"></textarea>
+        <div class="enrich-actions">
+          <button class="btn-primary" id="enrich-btn" onclick="enrichFromPaste()" style="width:auto;margin-top:0;padding:7px 18px;">AI 解析并补充</button>
+          <span class="enrich-status" id="enrich-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ RIGHT: Generator + History ════ -->
+  <div class="col-right" id="col-right">
+    <!-- Sender Config (collapsible) -->
+    <div class="card">
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleSender()">
+        <span>发件人设置</span>
+        <span id="sender-toggle-icon" style="font-size:0.72rem;color:var(--text-tertiary)">展开</span>
+      </div>
+      <div class="card-body" id="sender-panel" style="display:none;">
+        <div class="gen-label">姓名</div>
+        <input type="text" class="gen-input" id="sender-name" placeholder="你的名字" />
+        <div class="gen-label">团队/部门</div>
+        <input type="text" class="gen-input" id="sender-team" placeholder="如：AI Research Lab" />
+        <div class="gen-label">联系方式（微信/邮箱）</div>
+        <input type="text" class="gen-input" id="sender-contact" placeholder="微信号或邮箱" />
+        <button class="btn-primary" onclick="saveSender()" style="margin-top:10px;">保存设置</button>
+        <span class="enrich-status" id="sender-status" style="margin-left:8px;"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">消息生成</div>
+      <div class="card-body">
+        <div class="gen-label">模式</div>
+        <div class="mode-group">
+          <button class="mode-btn" id="mode-custom" onclick="setMode('custom',this)">档案直推</button>
+          <button class="mode-btn" id="mode-community" onclick="setMode('community',this)">开源社区</button>
+          <button class="mode-btn" id="mode-academic" onclick="setMode('academic',this)">学术会议</button>
+        </div>
+
+        <div class="gen-label">语言</div>
+        <div class="lang-group">
+          <button class="mode-btn active" id="lang-zh" onclick="setLang('zh',this)">中文</button>
+          <button class="mode-btn" id="lang-en" onclick="setLang('en',this)">English</button>
+        </div>
+
+        <div id="community-row">
+          <div class="gen-label">目标社区/会议</div>
+          <input type="text" class="gen-input" id="cfg-community" placeholder="DeepSpeed, NeurIPS..." />
+        </div>
+
+        <div class="gen-label">API Key</div>
+        <input type="password" class="gen-input" id="api-key" placeholder="本地模型可留空" />
+
+        <div class="gen-label">额外要求</div>
+        <input type="text" class="gen-input" id="cfg-note" placeholder="如：强调技术合作机会..." />
+
+        <button class="btn-primary" id="gen-btn" onclick="generateMessage()">生成消息</button>
+
+        <div id="gen-status" class="gen-status" style="display:none;"></div>
+
+        <div id="gen-result" style="display:none;">
+          <div class="gen-result-message" id="gen-message" contenteditable="true"></div>
+          <div class="gen-result-actions">
+            <button class="btn-copy" onclick="copyGenMessage()">复制</button>
+            <button class="btn-secondary" onclick="generateMessage()">重新生成</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">外联记录 (<span id="history-count">{{ person.history|length }}</span>)</div>
+      <div class="card-body">
+        <div id="history-list">
+        {% if person.history %}
+        {% for h in person.history %}
+        <div class="history-item">
+          <div class="history-meta">
+            <span class="history-lang">{{ 'EN' if h.language == 'en' else '中' }}</span>
+            {% if h.community %}<span style="font-size:0.72rem;color:var(--text-tertiary)">{{ h.community }}</span>{% endif %}
+            <span class="history-time">{{ h.created_at }}</span>
+          </div>
+          <div class="history-message">{{ h.message }}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-section">暂无外联记录</div>
+        {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAB for responsive -->
+<button class="fab-gen" id="fab-gen" onclick="toggleRightPanel()">G</button>
+
+<script>
+  let language = 'zh';
+  let genMode = 'custom';
+  const personId = {{ person.id }};
+  const isEnriched = {{ 'true' if person.notes == 'linkedin_enriched' else 'false' }};
+
+  // Init
+  (function() {
+    if (isEnriched) {
+      setMode('custom', document.getElementById('mode-custom'));
+    } else {
+      setMode('community', document.getElementById('mode-community'));
+    }
+    // About toggle
+    const aboutEl = document.getElementById('about-text');
+    const toggleEl = document.getElementById('about-toggle');
+    if (aboutEl && toggleEl && aboutEl.scrollHeight > aboutEl.clientHeight + 2) {
+      toggleEl.style.display = 'inline';
+    }
+    // Load sender config
+    loadSender();
+  })();
+
+  function toggleSender() {
+    const panel = document.getElementById('sender-panel');
+    const icon = document.getElementById('sender-toggle-icon');
+    if (panel.style.display === 'none') {
+      panel.style.display = 'block';
+      icon.textContent = '收起';
+    } else {
+      panel.style.display = 'none';
+      icon.textContent = '展开';
+    }
+  }
+
+  async function loadSender() {
+    try {
+      const resp = await fetch('/api/sender');
+      const data = await resp.json();
+      document.getElementById('sender-name').value = data.name || '';
+      document.getElementById('sender-team').value = data.team || '';
+      document.getElementById('sender-contact').value = data.contact || '';
+    } catch(e) {}
+  }
+
+  async function saveSender() {
+    const status = document.getElementById('sender-status');
+    try {
+      await fetch('/api/sender', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('sender-name').value.trim(),
+          team: document.getElementById('sender-team').value.trim(),
+          contact: document.getElementById('sender-contact').value.trim(),
+        }),
+      });
+      status.className = 'enrich-status success';
+      status.textContent = '已保存';
+      setTimeout(() => status.textContent = '', 2000);
+    } catch(e) {
+      status.className = 'enrich-status error';
+      status.textContent = '保存失败';
+    }
+  }
+
+  function toggleAbout() {
+    const el = document.getElementById('about-text');
+    const btn = document.getElementById('about-toggle');
+    el.classList.toggle('expanded');
+    btn.textContent = el.classList.contains('expanded') ? '收起' : '展开';
+  }
+
+  function setMode(mode, el) {
+    genMode = mode;
+    document.querySelectorAll('.mode-group .mode-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('community-row').style.display = mode === 'custom' ? 'none' : 'block';
+  }
+
+  function setLang(lang, el) {
+    language = lang;
+    document.querySelectorAll('.lang-group .mode-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function toggleRightPanel() {
+    document.getElementById('col-right').classList.toggle('open');
+  }
+
+  async function generateMessage() {
+    const apiKey = document.getElementById('api-key').value.trim();
+    const btn = document.getElementById('gen-btn');
+    const statusEl = document.getElementById('gen-status');
+    const resultEl = document.getElementById('gen-result');
+
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+    statusEl.style.display = 'block';
+    statusEl.textContent = genMode === 'custom' ? '基于档案生成中...' : '正在搜索背景信息...';
+    resultEl.style.display = 'none';
+
+    const config = {
+      mode: genMode,
+      community: document.getElementById('cfg-community').value.trim(),
+      custom_note: document.getElementById('cfg-note').value.trim(),
+      language: language,
+    };
+
+    const resp = await fetch(`/api/generate-for-person/${personId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+      body: JSON.stringify({ config }),
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = JSON.parse(line.slice(6));
+
+        if (data.status === 'searching') {
+          statusEl.textContent = '正在搜索背景信息...';
+        } else if (data.status === 'generating') {
+          statusEl.textContent = '正在生成话术...';
+        } else if (data.status === 'done') {
+          statusEl.style.display = 'none';
+          resultEl.style.display = 'block';
+          document.getElementById('gen-message').textContent = data.message;
+          addHistoryItem(data.message);
+        } else if (data.status === 'complete') {
+          btn.disabled = false;
+          btn.textContent = '生成消息';
+        }
+      }
+    }
+  }
+
+  function addHistoryItem(message) {
+    const list = document.getElementById('history-list');
+    const empty = list.querySelector('.empty-section');
+    if (empty) empty.remove();
+
+    const now = new Date().toLocaleString('zh-CN');
+    const community = document.getElementById('cfg-community').value.trim();
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.innerHTML = `
+      <div class="history-meta">
+        <span class="history-lang">${language === 'en' ? 'EN' : '中'}</span>
+        ${community ? `<span style="font-size:0.72rem;color:var(--text-tertiary)">${community}</span>` : ''}
+        <span class="history-time">${now}</span>
+      </div>
+      <div class="history-message">${message.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    `;
+    list.insertBefore(item, list.firstChild);
+    const countEl = document.getElementById('history-count');
+    countEl.textContent = parseInt(countEl.textContent) + 1;
+  }
+
+  async function enrichFromPaste() {
+    const text = document.getElementById('enrich-text').value.trim();
+    if (!text) return;
+
+    const btn = document.getElementById('enrich-btn');
+    const status = document.getElementById('enrich-status');
+    const apiKey = document.getElementById('api-key').value.trim();
+
+    btn.disabled = true;
+    btn.textContent = '解析中...';
+    status.className = 'enrich-status';
+    status.textContent = 'AI 正在解析...';
+
+    try {
+      const resp = await fetch(`/api/people/${personId}/enrich-from-paste`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+        body: JSON.stringify({ text }),
+      });
+      const data = await resp.json();
+
+      if (data.ok) {
+        status.className = 'enrich-status success';
+        status.textContent = '补充成功，正在刷新...';
+        document.getElementById('enrich-text').value = '';
+        setTimeout(() => { window.scrollTo(0, 0); location.reload(); }, 800);
+      } else {
+        status.className = 'enrich-status error';
+        status.textContent = data.error || '解析失败';
+      }
+    } catch (e) {
+      status.className = 'enrich-status error';
+      status.textContent = '请求失败，请检查服务是否运行';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'AI 解析并补充';
+  }
+
+  function copyGenMessage() {
+    const text = document.getElementById('gen-message').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = event.target;
+      btn.textContent = '已复制';
+      setTimeout(() => btn.textContent = '复制', 2000);
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>人才库</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface-alt: #f5f5f7;
+      --border: #e8e8ec;
+      --border-light: #f0f0f3;
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --text-tertiary: #aeaeb2;
+      --accent: #c0392b;
+      --accent-light: #fdf2f0;
+      --accent-hover: #a83224;
+      --blue: #0071e3;
+      --green: #34c759;
+      --orange: #ff9500;
+      --purple: #af52de;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+      --shadow-lg: 0 4px 24px rgba(0,0,0,0.08);
+      --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      height: 52px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.88);
+    }
+    .nav-brand {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-right: 28px;
+    }
+    .nav-links { display: flex; gap: 2px; }
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 7px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface-alt); }
+    .nav-link.active { color: var(--accent); background: var(--accent-light); font-weight: 600; }
+    .nav-right {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .nav-btn {
+      background: var(--surface-alt);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover { color: var(--text); border-color: #ccc; }
+    .nav-btn-primary {
+      background: var(--text);
+      color: white;
+      border: 1px solid var(--text);
+    }
+    .nav-btn-primary:hover { background: #333; }
+
+    /* ── LAYOUT ── */
+    .main { max-width: 1280px; margin: 0 auto; padding: 24px 32px; }
+
+    /* ── INSIGHTS DASHBOARD ── */
+    .insights-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .insights-toggle-btn {
+      background: none;
+      border: none;
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 0;
+    }
+    .insights-toggle-btn:hover { color: var(--text); }
+    .insights-toggle-btn .arrow {
+      transition: transform 0.2s;
+      font-size: 0.65rem;
+      display: inline-block;
+    }
+    .insights-toggle-btn.open .arrow { transform: rotate(90deg); }
+
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.35s ease, opacity 0.25s ease, margin 0.3s ease;
+    }
+    .insights-grid.open {
+      max-height: 900px;
+      opacity: 1;
+    }
+
+    .insight-card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 18px 20px;
+      min-height: 0;
+      min-width: 0;
+    }
+    .insight-card-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+    .insight-stat {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .insight-stat-sub {
+      font-size: 0.78rem;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+    .chart-container {
+      position: relative;
+      height: 180px;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    /* ── SEARCH ── */
+    .search-section { margin-bottom: 20px; }
+    .search-bar {
+      display: flex;
+      gap: 10px;
+    }
+    .search-input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-size: 0.88rem;
+      font-family: var(--font);
+      outline: none;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s;
+      color: var(--text);
+    }
+    .search-input::placeholder { color: var(--text-tertiary); }
+    .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(192,57,43,0.08); }
+    .search-btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--text);
+      color: white;
+      font-size: 0.84rem;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .search-btn:hover { background: #333; }
+
+    .search-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+    }
+    .mode-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-weight: 600;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+    }
+    .mode-tag.semantic { background: #f3e8ff; color: #7c3aed; }
+    .mode-tag.keyword  { background: #e8f4fd; color: #0369a1; }
+    .mode-tag.boolean  { background: #fff7ed; color: #c2410c; }
+
+    /* ── TABLE ── */
+    .table-card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--surface-alt); }
+    th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border-light);
+    }
+    td {
+      padding: 11px 16px;
+      font-size: 0.84rem;
+      border-bottom: 1px solid var(--border-light);
+      color: var(--text);
+    }
+    tr { transition: background 0.1s; }
+    tr:hover { background: #fafbfc; }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .name-cell { font-weight: 600; cursor: pointer; }
+    .name-cell:hover { color: var(--accent); }
+    .company-cell { color: var(--text-secondary); }
+    .location-cell { color: var(--text-tertiary); font-size: 0.8rem; }
+    .title-cell {
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-secondary);
+    }
+    .link-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .link-pill.linkedin { background: #e8f4fd; color: #0a66c2; }
+    .link-pill.linkedin:hover { background: #d1e9fa; }
+    .link-pill.github { background: #f0f0f3; color: #333; }
+    .link-pill.github:hover { background: #e4e4e8; }
+
+    .status-badge {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .status-new       { background: #e8f5e9; color: #2e7d32; }
+    .status-contacted { background: #e3f2fd; color: #1565c0; }
+    .status-replied   { background: #fff3e0; color: #e65100; }
+    .status-interview { background: #f3e5f5; color: #7b1fa2; }
+
+    .cb-cell { width: 40px; text-align: center; }
+    .cb-cell input { accent-color: var(--accent); cursor: pointer; width: 15px; height: 15px; }
+
+    /* ── PAGINATION ── */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-top: 20px;
+    }
+    .page-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface);
+      font-size: 0.82rem;
+      font-family: var(--font);
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+    .page-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .page-btn.active { background: var(--text); border-color: var(--text); color: white; }
+    .page-info { font-size: 0.8rem; color: var(--text-tertiary); margin: 0 6px; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-tertiary);
+    }
+    .empty-state p { font-size: 0.88rem; }
+
+    /* ── SELECT BAR ── */
+    .select-bar {
+      background: var(--text);
+      color: white;
+      padding: 12px 24px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.86rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .select-bar button {
+      background: white;
+      color: var(--text);
+      border: none;
+      padding: 7px 18px;
+      border-radius: 7px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .select-bar button:hover { background: #f0f0f0; }
+    .select-bar .btn-cancel {
+      background: rgba(255,255,255,0.15);
+      color: white;
+    }
+    .select-bar .btn-cancel:hover { background: rgba(255,255,255,0.25); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+    }
+    .modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h2 { font-size: 1rem; font-weight: 700; }
+    .modal-close {
+      background: var(--surface-alt);
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-close:hover { background: #eee; color: var(--text); }
+    .modal-body { padding: 20px 24px; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 5px;
+    }
+    .modal-field input, .modal-field textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 0.84rem;
+      font-family: var(--font);
+      outline: none;
+      transition: all 0.2s;
+      color: var(--text);
+    }
+    .modal-field input:focus, .modal-field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(192,57,43,0.08);
+    }
+    .modal-field textarea { resize: vertical; min-height: 60px; }
+    .modal-row { display: flex; gap: 12px; }
+    .modal-row .modal-field { flex: 1; }
+    .modal-footer {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .modal-footer button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      font-family: var(--font);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-modal-cancel { background: var(--surface-alt); color: var(--text-secondary); }
+    .btn-modal-cancel:hover { background: #eee; }
+    .btn-modal-save { background: var(--text); color: white; }
+    .btn-modal-save:hover { background: #333; }
+    .btn-modal-save:disabled { opacity: 0.4; cursor: not-allowed; }
+    .dup-warning {
+      background: #fff8f0;
+      border: 1px solid #ffe0b2;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: #c2410c;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .dup-warning a { color: var(--accent); font-weight: 600; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      top: 64px;
+      right: 32px;
+      background: var(--text);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      z-index: 200;
+      animation: fadeInOut 2.5s ease forwards;
+    }
+    @keyframes fadeInOut {
+      0%   { opacity: 0; transform: translateY(-8px); }
+      10%  { opacity: 1; transform: translateY(0); }
+      80%  { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-8px); }
+    }
+
+    /* Pool tabs */
+    .pool-tabs {
+      display: flex;
+      gap: 2px;
+      background: #eaedf1;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 16px;
+      width: fit-content;
+    }
+    .pool-tab {
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 7px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-tertiary);
+      transition: all 0.15s;
+    }
+    .pool-tab:hover { color: var(--text-primary); }
+    .pool-tab.active {
+      background: var(--surface);
+      color: var(--text-primary);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    /* Academic embed */
+    #academic-view { margin-top: -8px; }
+    #academic-view .acad-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+      margin-bottom: 16px;
+    }
+    #academic-view .filter-group { display: flex; flex-direction: column; gap: 3px; }
+    #academic-view .filter-label { font-size: 0.68rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; }
+    #academic-view .filter-input, #academic-view .filter-select {
+      font-family: inherit; font-size: 0.8rem; padding: 6px 10px;
+      border: 1px solid var(--border); border-radius: 5px; background: var(--surface); min-width: 120px;
+    }
+    #academic-view .filter-input:focus, #academic-view .filter-select:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(61,90,128,0.1);
+    }
+    #academic-view table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    #academic-view th {
+      text-align: left; padding: 10px 12px; font-weight: 600; font-size: 0.72rem;
+      text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary);
+      border-bottom: 2px solid var(--border); white-space: nowrap;
+    }
+    #academic-view td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+    #academic-view tr:hover { background: #fafbfc; }
+    #academic-view .badge-role { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; background: var(--accent-bg); color: var(--accent); }
+    #academic-view .area-chip { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.7rem; background: #f0f1f3; color: #555; margin: 1px 2px; }
+    #academic-view .status-select { font-family: inherit; font-size: 0.7rem; padding: 2px 6px; border: 1px solid var(--border); border-radius: 3px; background: transparent; cursor: pointer; }
+    #academic-view .btn-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; opacity: 0; transition: opacity 0.15s; font-size: 0.85rem; padding: 2px 6px; border-radius: 3px; }
+    #academic-view tr:hover .btn-del { opacity: 1; }
+    #academic-view .btn-del:hover { color: #e53e3e; background: #fee; }
+    #academic-view .acad-pagination { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; font-size: 0.8rem; }
+    #academic-view .acad-empty { text-align: center; padding: 48px; color: var(--text-tertiary); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-brand">Talent Pool</span>
+  <div class="nav-links">
+    <a href="/discover" class="nav-link">Discover</a>
+    <a href="/pool" class="nav-link active">Pool</a>
+    <a href="/outreach" class="nav-link">Outreach</a>
+  </div>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="openAddModal()">+ 添加候选人</button>
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- POOL TABS -->
+  <div class="pool-tabs" id="pool-tabs">
+    <button class="pool-tab active" data-tab="all" onclick="switchPoolTab('all')">All</button>
+    <button class="pool-tab" data-tab="academic" onclick="switchPoolTab('academic')">Academic</button>
+    <button class="pool-tab" data-tab="industry" onclick="switchPoolTab('industry')">Industry</button>
+  </div>
+
+  <!-- ACADEMIC VIEW (hidden by default) -->
+  <div id="academic-view" style="display:none;"></div>
+
+  <!-- INDUSTRY/ALL VIEW (default) -->
+  <div id="main-view">
+
+  <!-- INSIGHTS -->
+  <div class="insights-toggle">
+    <button class="insights-toggle-btn open" id="insights-btn" onclick="toggleInsights()">
+      <span class="arrow">&#9654;</span> Insights
+    </button>
+    <span style="font-size:0.78rem;color:var(--text-tertiary)" id="total-badge"></span>
+  </div>
+
+  <div class="insights-grid open" id="insights-grid">
+    <div class="insight-card">
+      <div class="insight-card-title">候选人总数</div>
+      <div class="insight-stat" id="stat-total">--</div>
+      <div class="insight-stat-sub" id="stat-sub"></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-card-title">补充进度</div>
+      <div style="padding:12px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-tertiary);margin-bottom:6px;">
+          <span id="enrich-label">-- / --</span>
+          <span id="enrich-pct">--%</span>
+        </div>
+        <div style="background:#eaeaea;border-radius:6px;height:10px;overflow:hidden;">
+          <div id="enrich-bar" style="background:#3d5a80;height:100%;border-radius:6px;transition:width 0.6s ease;width:0%;"></div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-tertiary);margin-top:8px;">已通过 LinkedIn 粘贴补充详细档案</div>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-card-title">外联漏斗</div>
+      <div class="chart-container" style="height:180px;" id="funnel-container"></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-card-title">职级分布</div>
+      <div class="chart-container"><canvas id="chart-seniority"></canvas></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-card-title">公司分布 Top 8</div>
+      <div class="chart-container"><canvas id="chart-companies"></canvas></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-card-title">学历分布</div>
+      <div class="chart-container"><canvas id="chart-degrees"></canvas></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-card-title">Top 院校</div>
+      <div class="chart-container"><canvas id="chart-schools"></canvas></div>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="search-section">
+    <div class="search-bar">
+      <input class="search-input" id="search" type="text"
+             placeholder="搜索关键词、布尔表达式 (Google AND PhD) 或自然语言描述..."
+             onkeydown="if(event.key==='Enter') doSearch()" />
+      <button class="search-btn" onclick="doSearch()">搜索</button>
+    </div>
+    <div class="search-meta" id="search-meta"></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th class="cb-cell"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" /></th>
+          <th>姓名</th>
+          <th>职位</th>
+          <th>公司</th>
+          <th>地点</th>
+          <th>链接</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty" class="empty-state" style="display:none;">
+      <p>没有找到匹配的候选人</p>
+    </div>
+  </div>
+
+  <div class="pagination" id="pagination"></div>
+
+  </div><!-- /main-view -->
+</div>
+
+<!-- SELECT BAR -->
+<div class="select-bar" id="select-bar" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:50;min-width:420px;">
+  <span id="select-count">已选 0 人</span>
+  <div style="display:flex;gap:8px;">
+    <button onclick="sendToGenerator()">生成话术</button>
+    <button class="btn-cancel" onclick="clearSelection()">取消</button>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>添加候选人</h2>
+      <button class="modal-close" onclick="closeAddModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dup-warning" id="dup-warning">
+        该 LinkedIn 已存在：<a id="dup-link" href="#" target="_blank"></a>
+        <span id="dup-name"></span>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field"><label>First Name *</label><input id="add-first" /></div>
+        <div class="modal-field"><label>Last Name</label><input id="add-last" /></div>
+      </div>
+      <div class="modal-field">
+        <label>LinkedIn URL *</label>
+        <input id="add-linkedin" placeholder="https://www.linkedin.com/in/..." oninput="debounceCheckDup()" />
+      </div>
+      <div class="modal-row">
+        <div class="modal-field"><label>职位</label><input id="add-title" /></div>
+        <div class="modal-field"><label>公司</label><input id="add-company" /></div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field"><label>邮箱</label><input id="add-email" type="email" /></div>
+        <div class="modal-field"><label>GitHub</label><input id="add-github" placeholder="https://github.com/..." /></div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field"><label>Headline</label><input id="add-headline" /></div>
+        <div class="modal-field"><label>地点</label><input id="add-location" /></div>
+      </div>
+      <div class="modal-field">
+        <label>工作经历（每行一条：Title@Company）</label>
+        <textarea id="add-experience" rows="3" placeholder="Title@Company (one per line)"></textarea>
+      </div>
+      <div class="modal-field">
+        <label>教育背景</label>
+        <input id="add-education" placeholder="University - Degree - Major" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeAddModal()">取消</button>
+      <button class="btn-modal-save" id="add-save-btn" onclick="savePerson()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ══════════════════════════════════════
+  //  State
+  // ══════════════════════════════════════
+  let currentPage = 1;
+  const perPage = 30;
+  let currentData = [];
+  let selected = new Map();
+  let charts = {};
+
+  const PALETTE = ['#3d5a80','#2c3e50','#7f8c8d','#8e9aaf','#5a7de0','#6b7b8d','#4a6fa5','#98a8b8','#5c6b7a','#a0b0c0','#445566','#607080'];
+
+  // ══════════════════════════════════════
+  //  Insights
+  // ══════════════════════════════════════
+
+  function toggleInsights() {
+    const grid = document.getElementById('insights-grid');
+    const btn = document.getElementById('insights-btn');
+    grid.classList.toggle('open');
+    btn.classList.toggle('open');
+  }
+
+  async function loadInsights() {
+    const resp = await fetch('/api/people/insights');
+    const d = await resp.json();
+
+    document.getElementById('stat-total').textContent = d.total.toLocaleString();
+
+    // Stat sub
+    const topCompany = d.companies[0];
+    if (topCompany) {
+      document.getElementById('stat-sub').textContent = `Top: ${topCompany.label} (${topCompany.value})`;
+    }
+
+    document.getElementById('total-badge').textContent = `${d.total.toLocaleString()} 位候选人`;
+
+    // ── Enrichment progress bar ──
+    const enriched = d.enriched || 0;
+    const pct = d.total > 0 ? (enriched / d.total * 100) : 0;
+    document.getElementById('enrich-label').textContent = `${enriched} / ${d.total.toLocaleString()}`;
+    document.getElementById('enrich-pct').textContent = `${pct.toFixed(1)}%`;
+    document.getElementById('enrich-bar').style.width = `${Math.max(pct, 0.5)}%`;
+
+    // ── Outreach funnel ──
+    const funnel = d.funnel || [];
+    const funnelContainer = document.getElementById('funnel-container');
+    if (funnel.length && funnel[0].value > 0) {
+      const maxVal = funnel[0].value;
+      const funnelColors = ['#3d5a80', '#4a6fa5', '#5a7de0', '#7f8c8d', '#8e9aaf'];
+      let funnelHTML = '<div style="display:flex;flex-direction:column;gap:4px;height:100%;justify-content:center;">';
+      funnel.forEach((step, i) => {
+        const widthPct = Math.max((step.value / maxVal) * 100, 8);
+        const convRate = i > 0 && funnel[i-1].value > 0
+          ? `${(step.value / funnel[i-1].value * 100).toFixed(1)}%`
+          : '';
+        funnelHTML += `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:52px;text-align:right;font-size:0.72rem;color:#8a8a8a;flex-shrink:0;">${step.label}</div>
+            <div style="flex:1;position:relative;">
+              <div style="background:${funnelColors[i] || '#8e9aaf'};height:24px;border-radius:4px;width:${widthPct}%;display:flex;align-items:center;padding:0 8px;transition:width 0.6s ease;">
+                <span style="font-size:0.72rem;color:#fff;font-weight:500;white-space:nowrap;">${step.value.toLocaleString()}</span>
+              </div>
+            </div>
+            ${convRate ? `<div style="width:40px;font-size:0.68rem;color:#8a8a8a;flex-shrink:0;">${convRate}</div>` : '<div style="width:40px;"></div>'}
+          </div>`;
+      });
+      funnelHTML += '</div>';
+      funnelContainer.innerHTML = funnelHTML;
+    }
+
+    // ── Seniority - doughnut ──
+    if (d.seniority && d.seniority.length) {
+      const senColors = ['#2c3e50','#3d5a80','#4a6fa5','#5a7de0','#7f8c8d','#8e9aaf','#a0b0c0'];
+      charts.seniority = new Chart(document.getElementById('chart-seniority'), {
+        type: 'doughnut',
+        data: {
+          labels: d.seniority.map(x => x.label),
+          datasets: [{
+            data: d.seniority.map(x => x.value),
+            backgroundColor: senColors.slice(0, d.seniority.length),
+            borderWidth: 0,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '55%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { font: { family: "'DM Sans'", size: 10 }, color: '#6e6e73', boxWidth: 8, padding: 6 }
+            }
+          }
+        }
+      });
+    }
+
+    // ── Companies - horizontal bar ──
+    const compData = d.companies.slice(0, 8);
+    charts.companies = new Chart(document.getElementById('chart-companies'), {
+      type: 'bar',
+      data: {
+        labels: compData.map(c => c.label.length > 14 ? c.label.slice(0,12) + '...' : c.label),
+        datasets: [{
+          data: compData.map(c => c.value),
+          backgroundColor: PALETTE.slice(0, compData.length),
+          borderRadius: 4,
+          barThickness: 14,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: false, grid: { display: false } },
+          y: {
+            grid: { display: false },
+            ticks: { font: { family: "'DM Sans'", size: 11, weight: 500 }, color: '#6e6e73' }
+          }
+        }
+      }
+    });
+
+    // ── Degrees - doughnut ──
+    charts.degrees = new Chart(document.getElementById('chart-degrees'), {
+      type: 'doughnut',
+      data: {
+        labels: d.degrees.map(x => x.label),
+        datasets: [{
+          data: d.degrees.map(x => x.value),
+          backgroundColor: ['#3d5a80','#2c3e50','#5a7de0','#7f8c8d','#8e9aaf'],
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '55%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { font: { family: "'DM Sans'", size: 10 }, color: '#6e6e73', boxWidth: 8, padding: 6 }
+          }
+        }
+      }
+    });
+
+    // ── Schools - horizontal bar ──
+    const schoolData = d.schools.slice(0, 8);
+    charts.schools = new Chart(document.getElementById('chart-schools'), {
+      type: 'bar',
+      data: {
+        labels: schoolData.map(s => s.label.length > 18 ? s.label.slice(0,16) + '...' : s.label),
+        datasets: [{
+          data: schoolData.map(s => s.value),
+          backgroundColor: '#3d5a80',
+          borderRadius: 4,
+          barThickness: 14,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: false, grid: { display: false } },
+          y: {
+            grid: { display: false },
+            ticks: { font: { family: "'DM Sans'", size: 10, weight: 500 }, color: '#6e6e73' }
+          }
+        }
+      }
+    });
+  }
+
+  // ══════════════════════════════════════
+  //  People table
+  // ══════════════════════════════════════
+
+  const MODE_LABELS = { keyword: '关键词', boolean: '布尔', semantic: '语义' };
+
+  async function loadPeople(page = 1) {
+    const q = document.getElementById('search').value.trim();
+    currentPage = page;
+
+    const resp = await fetch(`/api/people?q=${encodeURIComponent(q)}&page=${page}&per_page=${perPage}`);
+    const json = await resp.json();
+    const { data, total } = json;
+    currentData = data;
+    const usedMode = json.mode || 'keyword';
+
+    const meta = document.getElementById('search-meta');
+    if (q) {
+      const modeLabel = MODE_LABELS[usedMode] || '';
+      meta.innerHTML = `<span class="mode-tag ${usedMode}">${modeLabel}</span> <span>${total} 个结果</span>`;
+    } else {
+      meta.innerHTML = '';
+    }
+
+    const tbody = document.getElementById('tbody');
+    const empty = document.getElementById('empty');
+
+    if (!data.length) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('pagination').innerHTML = '';
+      return;
+    }
+
+    empty.style.display = 'none';
+    tbody.innerHTML = data.map(p => `
+      <tr>
+        <td class="cb-cell" onclick="event.stopPropagation()">
+          <input type="checkbox" data-id="${p.id}" ${selected.has(p.id) ? 'checked' : ''}
+                 onchange="toggleSelect(${p.id}, this.checked)" />
+        </td>
+        <td class="name-cell" onclick="window.location='/people/${p.id}'">${esc(p.first_name)} ${esc(p.last_name)}</td>
+        <td class="title-cell">${esc(p.title || '')}</td>
+        <td class="company-cell">${esc(p.company || '')}</td>
+        <td class="location-cell">${esc(shortLoc(p.location))}</td>
+        <td>
+          ${p.linkedin_url ? `<a class="link-pill linkedin" href="${esc(p.linkedin_url)}" target="_blank" onclick="event.stopPropagation()">in</a>` : ''}
+          ${p.github_url ? `<a class="link-pill github" href="${esc(p.github_url)}" target="_blank" onclick="event.stopPropagation()">gh</a>` : ''}
+        </td>
+        <td>
+          <span class="status-badge status-${p.status || 'new'}">${statusLabel(p.status)}</span>
+          ${p.notes === 'linkedin_enriched' ? '<span class="status-badge" style="background:#e8f0fe;color:#1a73e8;margin-left:4px;">已补充</span>' : ''}
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('select-all').checked = data.length > 0 && data.every(p => selected.has(p.id));
+    renderPagination(total, page);
+  }
+
+  function renderPagination(total, page) {
+    const totalPages = Math.ceil(total / perPage);
+    if (totalPages <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+    let html = `<button class="page-btn" onclick="loadPeople(${page-1})" ${page<=1?'disabled':''}>&#8592;</button>`;
+    const start = Math.max(1, page - 3), end = Math.min(totalPages, page + 3);
+    for (let i = start; i <= end; i++)
+      html += `<button class="page-btn ${i===page?'active':''}" onclick="loadPeople(${i})">${i}</button>`;
+    html += `<span class="page-info">${page} / ${totalPages}</span>`;
+    html += `<button class="page-btn" onclick="loadPeople(${page+1})" ${page>=totalPages?'disabled':''}>&#8594;</button>`;
+    document.getElementById('pagination').innerHTML = html;
+  }
+
+  function doSearch() { loadPeople(1); }
+
+  // ══════════════════════════════════════
+  //  Selection
+  // ══════════════════════════════════════
+
+  function toggleSelect(id, checked) {
+    if (checked) {
+      const p = currentData.find(d => d.id === id);
+      if (p) selected.set(id, p);
+    } else {
+      selected.delete(id);
+    }
+    updateSelectBar();
+  }
+
+  function toggleSelectAll(cb) {
+    currentData.forEach(p => {
+      if (cb.checked) selected.set(p.id, p);
+      else selected.delete(p.id);
+    });
+    document.querySelectorAll('#tbody input[type=checkbox]').forEach(c => c.checked = cb.checked);
+    updateSelectBar();
+  }
+
+  function updateSelectBar() {
+    const bar = document.getElementById('select-bar');
+    if (selected.size > 0) {
+      bar.style.display = 'flex';
+      document.getElementById('select-count').textContent = `已选 ${selected.size} 人`;
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  function clearSelection() {
+    selected.clear();
+    document.querySelectorAll('#tbody input[type=checkbox]').forEach(c => c.checked = false);
+    document.getElementById('select-all').checked = false;
+    updateSelectBar();
+  }
+
+  function sendToGenerator() {
+    if (!selected.size) return;
+    const people = Array.from(selected.values()).map(p => ({
+      id: p.id,
+      name: `${p.first_name} ${p.last_name}`.trim(),
+      url: p.linkedin_url || '',
+      github: p.github_url || '',
+      title: p.title || '',
+      company: p.company || '',
+      headline: p.headline || '',
+    }));
+    sessionStorage.setItem('selected_people', JSON.stringify(people));
+    window.location.href = '/?from=talent';
+  }
+
+  // ══════════════════════════════════════
+  //  Add candidate modal
+  // ══════════════════════════════════════
+
+  function openAddModal() {
+    document.getElementById('add-modal').classList.add('open');
+    document.getElementById('dup-warning').style.display = 'none';
+    ['add-first','add-last','add-linkedin','add-title','add-company',
+     'add-email','add-github','add-headline','add-location','add-experience','add-education'
+    ].forEach(id => document.getElementById(id).value = '');
+  }
+
+  function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
+
+  let dupTimer = null;
+  function debounceCheckDup() {
+    clearTimeout(dupTimer);
+    dupTimer = setTimeout(checkDuplicate, 500);
+  }
+
+  async function checkDuplicate() {
+    const url = document.getElementById('add-linkedin').value.trim();
+    const warn = document.getElementById('dup-warning');
+    if (!url || !url.includes('linkedin.com')) { warn.style.display = 'none'; return; }
+    const resp = await fetch('/api/people/check-duplicate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ linkedin_url: url }),
+    });
+    const data = await resp.json();
+    if (data.exists) {
+      warn.style.display = 'block';
+      document.getElementById('dup-link').href = `/people/${data.person.id}`;
+      document.getElementById('dup-link').textContent = `${data.person.first_name} ${data.person.last_name}`;
+      document.getElementById('dup-name').textContent = ` — ${data.person.title || ''} @ ${data.person.company || ''}`;
+    } else {
+      warn.style.display = 'none';
+    }
+  }
+
+  async function savePerson() {
+    const firstName = document.getElementById('add-first').value.trim();
+    const linkedinUrl = document.getElementById('add-linkedin').value.trim();
+    if (!firstName) { alert('请填写 First Name'); return; }
+    if (!linkedinUrl) { alert('请填写 LinkedIn URL'); return; }
+
+    const btn = document.getElementById('add-save-btn');
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+
+    const resp = await fetch('/api/people', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        first_name: firstName,
+        last_name: document.getElementById('add-last').value.trim(),
+        linkedin_url: linkedinUrl,
+        title: document.getElementById('add-title').value.trim(),
+        company: document.getElementById('add-company').value.trim(),
+        email: document.getElementById('add-email').value.trim(),
+        github_url: document.getElementById('add-github').value.trim(),
+        headline: document.getElementById('add-headline').value.trim(),
+        location: document.getElementById('add-location').value.trim(),
+        experience: document.getElementById('add-experience').value.trim(),
+        education: document.getElementById('add-education').value.trim(),
+      }),
+    });
+
+    const data = await resp.json();
+    btn.disabled = false;
+    btn.textContent = '保存';
+
+    if (data.error) { alert('保存失败: ' + data.error); return; }
+
+    const msg = data.action === 'created' ? '添加成功' : data.action === 'updated' ? '已更新' : '无变化';
+    closeAddModal();
+    showToast(msg);
+    loadPeople(currentPage);
+  }
+
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2600);
+  }
+
+  // ══════════════════════════════════════
+  //  Utilities
+  // ══════════════════════════════════════
+
+  function shortLoc(loc) {
+    if (!loc) return '';
+    const p = loc.split(',').map(s => s.trim());
+    if (p.length >= 2) return p[0] + ', ' + p[1].split(' ')[0];
+    return p[0];
+  }
+
+  function statusLabel(s) {
+    const map = { new:'新', contacted:'已联系', replied:'已回复', interview:'面试中', offer:'Offer', rejected:'拒绝' };
+    return map[s] || s || '新';
+  }
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Pool Tab Switching ──
+  let currentPoolTab = 'all';
+  let acadPage = 0;
+  const ACAD_PAGE_SIZE = 50;
+
+  function switchPoolTab(tab) {
+    currentPoolTab = tab;
+    document.querySelectorAll('.pool-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.getElementById('main-view').style.display = (tab === 'academic') ? 'none' : '';
+    document.getElementById('academic-view').style.display = (tab === 'academic') ? '' : 'none';
+    if (tab === 'academic') {
+      loadAcademicFilters();
+      loadAcademic();
+    }
+  }
+
+  // ── Academic View ──
+  async function loadAcademicFilters() {
+    try {
+      const res = await fetch('/api/academic/filters');
+      const data = await res.json();
+      populateAcadSelect('acad-f-institution', data.institutions || []);
+      populateAcadSelect('acad-f-advisor', data.advisors || []);
+      populateAcadSelect('acad-f-role', data.roles || []);
+    } catch(e) {}
+  }
+
+  function populateAcadSelect(id, items) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All</option>' + items.map(i => `<option value="${esc(i)}">${esc(i)}</option>`).join('');
+    sel.value = cur;
+  }
+
+  function getAcadFilters() {
+    return {
+      q: (document.getElementById('acad-f-search')?.value || '').trim(),
+      institution: document.getElementById('acad-f-institution')?.value || '',
+      advisor: document.getElementById('acad-f-advisor')?.value || '',
+      role: document.getElementById('acad-f-role')?.value || '',
+      grad_min: document.getElementById('acad-f-grad-min')?.value || '',
+      grad_max: document.getElementById('acad-f-grad-max')?.value || '',
+      status: document.getElementById('acad-f-status')?.value || '',
+    };
+  }
+
+  async function loadAcademic() {
+    const container = document.getElementById('academic-view');
+    // Render filters if not yet
+    if (!container.querySelector('.acad-filters')) {
+      container.innerHTML = `
+        <div class="acad-filters">
+          <div class="filter-group"><span class="filter-label">Search</span><input type="text" id="acad-f-search" class="filter-input" style="min-width:180px;" placeholder="Name, area..." onkeydown="if(event.key==='Enter')loadAcademic()" /></div>
+          <div class="filter-group"><span class="filter-label">Institution</span><select id="acad-f-institution" class="filter-select"><option value="">All</option></select></div>
+          <div class="filter-group"><span class="filter-label">Advisor</span><select id="acad-f-advisor" class="filter-select"><option value="">All</option></select></div>
+          <div class="filter-group"><span class="filter-label">Role</span><select id="acad-f-role" class="filter-select"><option value="">All</option></select></div>
+          <div class="filter-group"><span class="filter-label">Grad Year</span><div style="display:flex;gap:4px;"><input type="number" id="acad-f-grad-min" class="filter-input" style="width:70px;" placeholder="From" /><input type="number" id="acad-f-grad-max" class="filter-input" style="width:70px;" placeholder="To" /></div></div>
+          <div class="filter-group"><span class="filter-label">Status</span><select id="acad-f-status" class="filter-select"><option value="">All</option><option value="new">New</option><option value="contacted">Contacted</option><option value="replied">Replied</option><option value="interview">Interview</option></select></div>
+          <div class="filter-group"><button class="search-btn" style="margin-top:16px;" onclick="acadPage=0;loadAcademic()">Search</button></div>
+        </div>
+        <div id="acad-table-wrap"></div>
+        <div class="acad-pagination" id="acad-pagination"></div>
+      `;
+      loadAcademicFilters();
+    }
+
+    const filters = getAcadFilters();
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) { if (v) params.set(k, v); }
+    params.set('limit', ACAD_PAGE_SIZE);
+    params.set('offset', acadPage * ACAD_PAGE_SIZE);
+
+    try {
+      const res = await fetch('/api/academic/people?' + params.toString());
+      const data = await res.json();
+      renderAcademicTable(data.people || [], data.total || 0);
+    } catch(e) {
+      document.getElementById('acad-table-wrap').innerHTML = '<div class="acad-empty">Failed to load</div>';
+    }
+  }
+
+  function renderAcademicTable(people, total) {
+    const wrap = document.getElementById('acad-table-wrap');
+    if (!people.length) { wrap.innerHTML = '<div class="acad-empty">No academic candidates found. Import from Discover first.</div>'; document.getElementById('acad-pagination').innerHTML = ''; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Role</th><th>Advisor</th><th>Institution</th><th>Research Area</th><th>Grad</th><th>Status</th><th>Email</th><th></th>
+    </tr></thead><tbody>${people.map(p => {
+      const name = (p.first_name || '') + ' ' + (p.last_name || '');
+      const areas = (p.research_area||'').split(/[,;]/).slice(0,3).filter(Boolean).map(a => `<span class="area-chip">${esc(a.trim())}</span>`).join('');
+      const status = p.status || 'new';
+      return `<tr>
+        <td style="font-weight:500;white-space:nowrap;"><a href="/pool/${p.id}" style="color:var(--accent);text-decoration:none;">${esc(name.trim())}</a></td>
+        <td>${p.title ? `<span class="badge-role">${esc(p.title)}</span>` : ''}</td>
+        <td>${esc(p.advisor||'')}</td>
+        <td>${esc(p.institution||'')}</td>
+        <td>${areas}</td>
+        <td style="white-space:nowrap;">${p.expected_graduation ? `<strong>${p.expected_graduation}</strong>` : '-'}</td>
+        <td><select class="status-select" onchange="updateAcadStatus(${p.id},this.value)">
+          <option value="new"${status==='new'?' selected':''}>New</option>
+          <option value="contacted"${status==='contacted'?' selected':''}>Contacted</option>
+          <option value="replied"${status==='replied'?' selected':''}>Replied</option>
+          <option value="interview"${status==='interview'?' selected':''}>Interview</option>
+        </select></td>
+        <td style="white-space:nowrap;">${p.email ? `<a href="mailto:${esc(p.email)}" style="color:var(--accent);font-size:0.75rem;">${esc(p.email)}</a>` : ''}</td>
+        <td><button class="btn-del" onclick="deleteAcadPerson(${p.id},'${esc(name.trim())}')">✕</button></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+
+    // Pagination
+    const pages = Math.ceil(total / ACAD_PAGE_SIZE);
+    const pEl = document.getElementById('acad-pagination');
+    if (pages <= 1) { pEl.innerHTML = `<span style="color:var(--text-tertiary);font-size:0.8rem;">${total} candidates</span>`; return; }
+    let html = `<span style="color:var(--text-tertiary);font-size:0.8rem;">${total} candidates</span> `;
+    if (acadPage > 0) html += `<button class="search-btn" style="padding:4px 10px;font-size:0.75rem;" onclick="acadPage--;loadAcademic()">Prev</button>`;
+    html += ` <span style="font-size:0.8rem;">Page ${acadPage+1} / ${pages}</span> `;
+    if (acadPage < pages - 1) html += `<button class="search-btn" style="padding:4px 10px;font-size:0.75rem;" onclick="acadPage++;loadAcademic()">Next</button>`;
+    pEl.innerHTML = html;
+  }
+
+  async function updateAcadStatus(id, status) {
+    await fetch(`/api/academic/people/${id}/status`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({status}) });
+  }
+
+  async function deleteAcadPerson(id, name) {
+    if (!confirm(`Delete "${name}"?`)) return;
+    await fetch(`/api/academic/people/${id}`, { method: 'DELETE' });
+    loadAcademic();
+  }
+
+  // ── Init ──
+  // Check URL for ?tab=academic
+  const urlTab = new URLSearchParams(window.location.search).get('tab');
+  if (urlTab === 'academic') {
+    switchPoolTab('academic');
+  } else {
+    loadInsights();
+    loadPeople(1);
+  }
+</script>
+</body>
+</html>

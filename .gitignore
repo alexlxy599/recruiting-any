@@ -4,3 +4,7 @@ __pycache__/
 .env
 .DS_Store
 data.db
+data/
+*.db-journal
+*.db-wal
+.claude/

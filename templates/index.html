@@ -3,790 +3,717 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LinkedIn 消息生成器</title>
+  <title>消息生成器</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface-alt: #f5f5f7;
+      --border: #e8e8ec;
+      --border-light: #f0f0f3;
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --text-tertiary: #aeaeb2;
+      --accent: #c0392b;
+      --accent-light: #fdf2f0;
+      --accent-hover: #a83224;
+      --blue: #0071e3;
+      --green: #34c759;
+      --orange: #ff9500;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+      --shadow-lg: 0 4px 24px rgba(0,0,0,0.08);
+      --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
-    header {
-      background: linear-gradient(135deg, #c0392b, #8e1010);
-      color: white;
-      padding: 16px 32px;
+    /* ── NAV ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
       display: flex;
       align-items: center;
-      gap: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      height: 52px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.88);
     }
-    header h1 { font-size: 1.15rem; font-weight: 600; }
-    .header-right {
-      margin-left: auto;
-      display: flex;
-      gap: 8px;
+    .nav-brand {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-right: 28px;
     }
-    .header-btn {
-      background: rgba(255,255,255,0.15);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.3);
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 0.82rem;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .header-btn:hover { background: rgba(255,255,255,0.25); }
-
-    /* ── 模式切换 ── */
-    .mode-bar {
-      background: white;
-      border-bottom: 1px solid #e8e8e8;
-      padding: 10px 32px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .mode-label {
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: #888;
-      margin-right: 4px;
-    }
-    .mode-tab {
-      padding: 6px 18px;
-      border-radius: 20px;
-      border: 1.5px solid #e0e0e0;
-      background: white;
+    .nav-links { display: flex; gap: 2px; }
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 7px;
       font-size: 0.84rem;
-      cursor: pointer;
-      color: #555;
       font-weight: 500;
       transition: all 0.15s;
     }
-    .mode-tab:hover { border-color: #c0392b; color: #c0392b; }
-    .mode-tab.active { background: #c0392b; border-color: #c0392b; color: white; }
+    .nav-link:hover { color: var(--text); background: var(--surface-alt); }
+    .nav-link.active { color: var(--accent); background: var(--accent-light); font-weight: 600; }
+    .nav-right {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .nav-btn {
+      background: var(--surface-alt);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover { color: var(--text); border-color: #ccc; }
 
-    /* ── 话术配置栏 ── */
+    /* ── CONFIG BAR ── */
     .config-bar {
-      background: white;
-      border-bottom: 1px solid #e8e8e8;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
       padding: 0 32px;
     }
     .config-toggle {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 0;
+      padding: 12px 0;
       cursor: pointer;
       user-select: none;
-      font-size: 0.88rem;
-      font-weight: 500;
-      color: #555;
-      width: fit-content;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text-secondary);
     }
-    .config-toggle:hover { color: #c0392b; }
-    .config-toggle .arrow { transition: transform 0.2s; font-size: 0.7rem; }
+    .config-toggle:hover { color: var(--text); }
+    .config-toggle .arrow {
+      font-size: 0.65rem;
+      transition: transform 0.2s;
+      display: inline-block;
+    }
     .config-toggle.open .arrow { transform: rotate(90deg); }
+    .config-summary {
+      font-size: 0.78rem;
+      font-weight: 400;
+      color: var(--text-tertiary);
+      margin-left: 6px;
+    }
 
-    .config-body { display: none; padding-bottom: 18px; }
+    .config-body { display: none; padding-bottom: 20px; }
     .config-body.open { display: block; }
 
     .config-grid {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr 1.2fr;
       gap: 16px;
-      margin-top: 4px;
     }
     .config-field label {
       display: block;
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       font-weight: 600;
-      color: #888;
+      color: var(--text-tertiary);
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.06em;
       margin-bottom: 6px;
     }
     .config-field input,
     .config-field textarea {
       width: 100%;
-      border: 1.5px solid #e0e0e0;
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 9px 12px;
-      font-size: 0.85rem;
-      font-family: inherit;
+      font-size: 0.84rem;
+      font-family: var(--font);
       outline: none;
-      transition: border-color 0.2s;
-      color: #333;
+      transition: all 0.2s;
+      color: var(--text);
       resize: none;
     }
     .config-field input:focus,
-    .config-field textarea:focus { border-color: #c0392b; }
-
-    .preset-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
+    .config-field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(192,57,43,0.08);
     }
+
+    .chip-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
     .chip {
-      font-size: 0.76rem;
-      padding: 4px 12px;
-      border-radius: 20px;
-      border: 1.5px solid #e0e0e0;
-      background: white;
+      font-size: 0.74rem;
+      padding: 4px 11px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
       cursor: pointer;
-      color: #555;
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-family: var(--font);
       transition: all 0.15s;
     }
-    .chip:hover { border-color: #c0392b; color: #c0392b; }
-    .chip.active { background: #c0392b; border-color: #c0392b; color: white; }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+    .chip.active { background: var(--text); border-color: var(--text); color: white; }
 
-    /* ── 发件人配置 ── */
+    /* Mode tabs */
+    .mode-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .mode-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .mode-tab {
+      padding: 5px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 0.82rem;
+      font-weight: 500;
+      font-family: var(--font);
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+    .mode-tab:hover { border-color: var(--accent); color: var(--accent); }
+    .mode-tab.active { background: var(--text); border-color: var(--text); color: white; }
+
+    /* Sender */
     .sender-section {
       margin-top: 14px;
       padding-top: 14px;
-      border-top: 1px solid #f0f0f0;
-    }
-    .sender-section-title {
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 10px;
+      border-top: 1px solid var(--border-light);
     }
     .sender-grid {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
-      gap: 12px;
+      gap: 10px;
     }
     .sender-grid input {
       width: 100%;
-      border: 1.5px solid #e0e0e0;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 9px 12px;
-      font-size: 0.85rem;
-      font-family: inherit;
+      padding: 8px 12px;
+      font-size: 0.84rem;
+      font-family: var(--font);
       outline: none;
-      transition: border-color 0.2s;
-      color: #333;
+      color: var(--text);
     }
-    .sender-grid input:focus { border-color: #c0392b; }
+    .sender-grid input:focus { border-color: var(--accent); }
     .sender-saved {
-      font-size: 0.76rem;
-      color: #27ae60;
+      font-size: 0.74rem;
+      color: var(--green);
       margin-top: 6px;
       opacity: 0;
       transition: opacity 0.3s;
     }
     .sender-saved.show { opacity: 1; }
 
-    /* ── 语言切换 ── */
-    .lang-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid #f0f0f0;
-    }
-    .lang-row-label {
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .lang-tab {
-      padding: 5px 14px;
-      border-radius: 6px;
-      border: 1.5px solid #e0e0e0;
-      background: white;
+    /* Provider */
+    .provider-tabs { display: flex; gap: 5px; margin-bottom: 8px; }
+    .model-fields { display: flex; gap: 8px; }
+    .model-fields input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
       font-size: 0.82rem;
-      cursor: pointer;
-      color: #555;
-      transition: all 0.15s;
+      font-family: var(--mono);
+      outline: none;
+      color: var(--text);
     }
-    .lang-tab:hover { border-color: #c0392b; color: #c0392b; }
-    .lang-tab.active { background: #c0392b; border-color: #c0392b; color: white; font-weight: 500; }
+    .model-fields input:focus { border-color: var(--accent); }
+    .field-hint { font-size: 0.72rem; color: var(--text-tertiary); margin-top: 4px; }
 
-    /* ── Main layout ── */
+    /* ── MAIN GRID ── */
     .container {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 20px;
-      padding: 20px 32px;
+      padding: 24px 32px;
       max-width: 1400px;
       margin: 0 auto;
     }
 
     .panel {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
       overflow: hidden;
     }
-
     .panel-header {
       padding: 14px 20px;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--border-light);
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .panel-header h2 { font-size: 0.95rem; font-weight: 600; color: #333; }
+    .panel-header h2 { font-size: 0.92rem; font-weight: 700; color: var(--text); }
     .badge {
-      font-size: 0.75rem;
-      background: #f0f2f5;
-      color: #666;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: var(--surface-alt);
+      color: var(--text-tertiary);
       padding: 3px 10px;
-      border-radius: 20px;
+      border-radius: 6px;
     }
-
     .panel-body { padding: 16px 20px; }
 
     textarea.input-area {
       width: 100%;
-      height: 220px;
-      border: 1.5px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 12px;
-      font-size: 0.85rem;
-      font-family: "SF Mono", monospace;
+      height: 200px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: 0.84rem;
+      font-family: var(--mono);
       resize: vertical;
       outline: none;
-      transition: border-color 0.2s;
-      color: #333;
-      line-height: 1.6;
+      color: var(--text);
+      line-height: 1.7;
+      transition: all 0.2s;
     }
-    textarea.input-area:focus { border-color: #c0392b; }
+    textarea.input-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(192,57,43,0.08); }
 
     .hint {
-      font-size: 0.78rem;
-      color: #999;
+      font-size: 0.76rem;
+      color: var(--text-tertiary);
       margin-top: 8px;
       line-height: 1.5;
     }
 
+    .api-key-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: var(--surface-alt);
+      border-radius: 8px;
+      border: 1px solid var(--border-light);
+    }
+    .api-key-row label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+    .api-key-row input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 0.82rem;
+      font-family: var(--mono);
+      outline: none;
+      color: var(--text);
+    }
+
+    /* Parsed list */
     .parsed-list {
       margin-top: 14px;
-      border: 1px solid #f0f0f0;
-      border-radius: 8px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
       overflow: hidden;
     }
     .parsed-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 9px 14px;
-      border-bottom: 1px solid #f8f8f8;
-      font-size: 0.84rem;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 0.82rem;
     }
     .parsed-item:last-child { border-bottom: none; }
-    .parsed-item input[type=checkbox] { accent-color: #c0392b; }
-    .parsed-name { font-weight: 500; color: #222; min-width: 120px; }
+    .parsed-item input[type=checkbox] { accent-color: var(--accent); }
+    .parsed-name { font-weight: 600; color: var(--text); min-width: 110px; }
     .parsed-url {
-      color: #0073b1;
-      font-size: 0.78rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 200px;
-    }
-    .parsed-detail {
+      color: var(--blue);
       font-size: 0.76rem;
-      color: #888;
-      flex: 1;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      max-width: 180px;
     }
+    .parsed-detail { font-size: 0.74rem; color: var(--text-tertiary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .status-dot {
       margin-left: auto;
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       background: #ddd;
       flex-shrink: 0;
     }
-    .status-dot.searching { background: #f39c12; animation: pulse 1s infinite; }
-    .status-dot.generating { background: #3498db; animation: pulse 0.6s infinite; }
-    .status-dot.done { background: #27ae60; animation: none; }
-    .status-dot.error { background: #e74c3c; animation: none; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    .actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    button {
-      padding: 10px 22px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.88rem;
-      font-weight: 500;
-      transition: all 0.15s;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #c0392b, #8e1010);
-      color: white;
-      flex: 1;
-    }
-    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .btn-secondary { background: #f0f2f5; color: #555; }
-    .btn-secondary:hover { background: #e4e6ea; }
-
-    /* Results */
-    .results-list { display: flex; flex-direction: column; gap: 14px; }
-
-    .result-card {
-      border: 1.5px solid #f0f0f0;
-      border-radius: 10px;
-      overflow: hidden;
-      transition: box-shadow 0.2s;
-    }
-    .result-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-
-    .result-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      background: #fafafa;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .result-name { font-weight: 600; font-size: 0.9rem; color: #222; }
-    .result-url { font-size: 0.75rem; color: #0073b1; }
-    .result-paper { font-size: 0.75rem; color: #666; font-style: italic; margin-top: 2px; }
-    .result-affiliation { font-size: 0.72rem; color: #999; }
-
-    .result-card-body { padding: 12px 14px; }
-
-    .message-text {
-      font-size: 0.85rem;
-      line-height: 1.7;
-      color: #333;
-      white-space: pre-wrap;
-      border: 1px solid #f0f0f0;
-      border-radius: 6px;
-      padding: 10px 12px;
-      background: #fefefe;
-      min-height: 80px;
-      outline: none;
-    }
-    .message-text:focus { border-color: #c0392b; }
-
-    .card-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-      justify-content: flex-end;
-    }
-    .btn-copy {
-      background: #0073b1;
-      color: white;
-      font-size: 0.8rem;
-      padding: 6px 16px;
-    }
-    .btn-copy:hover { background: #005f96; }
-    .btn-copy.copied { background: #27ae60; }
-    .btn-regen {
-      background: #f0f2f5;
-      color: #555;
-      font-size: 0.8rem;
-      padding: 6px 14px;
-    }
-    .btn-export {
-      background: #1a7a4a;
-      color: white;
-      font-size: 0.8rem;
-      padding: 5px 14px;
-      border-radius: 6px;
-    }
-    .btn-export:hover { background: #15633c; }
-    .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: #bbb;
-    }
-    .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
-    .empty-state p { font-size: 0.9rem; }
+    .status-dot.searching { background: var(--orange); animation: pulse 1s infinite; }
+    .status-dot.generating { background: var(--blue); animation: pulse 0.6s infinite; }
+    .status-dot.done { background: var(--green); }
+    .status-dot.error { background: var(--accent); }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 
     .progress-bar-wrap {
       height: 3px;
-      background: #f0f0f0;
+      background: var(--border-light);
       border-radius: 2px;
       margin-top: 12px;
       overflow: hidden;
     }
     .progress-bar {
       height: 100%;
-      background: linear-gradient(90deg, #c0392b, #e74c3c);
+      background: var(--accent);
       border-radius: 2px;
       transition: width 0.4s ease;
       width: 0%;
     }
 
-    .api-key-banner {
-      background: #fff8f8;
-      border: 1px solid #f5c6c6;
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    button {
+      padding: 10px 22px;
+      border: none;
       border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 0.83rem;
-      color: #c0392b;
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .api-key-input {
-      flex: 1;
-      border: 1.5px solid #f5c6c6;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 0.84rem;
-      outline: none;
-      font-family: monospace;
-      background: white;
-    }
-    .api-key-input:focus { border-color: #c0392b; }
-
-    /* 模型配置区 */
-    .provider-tabs {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
-    .provider-tab {
-      padding: 5px 14px;
-      border-radius: 6px;
-      border: 1.5px solid #e0e0e0;
-      background: white;
-      font-size: 0.82rem;
       cursor: pointer;
-      color: #555;
+      font-size: 0.84rem;
+      font-weight: 600;
+      font-family: var(--font);
       transition: all 0.15s;
     }
-    .provider-tab:hover { border-color: #c0392b; color: #c0392b; }
-    .provider-tab.active { background: #c0392b; border-color: #c0392b; color: white; font-weight: 500; }
-    .model-fields { display: flex; gap: 10px; }
-    .model-fields input {
+    .btn-primary {
+      background: var(--text);
+      color: white;
       flex: 1;
-      border: 1.5px solid #e0e0e0;
-      border-radius: 6px;
-      padding: 7px 10px;
+    }
+    .btn-primary:hover { background: #333; }
+    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-secondary { background: var(--surface-alt); color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: #eee; }
+
+    /* Results */
+    .results-list { display: flex; flex-direction: column; gap: 12px; }
+    .result-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .result-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .result-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface-alt);
+      border-bottom: 1px solid var(--border-light);
+    }
+    .result-name { font-weight: 700; font-size: 0.88rem; color: var(--text); }
+    .result-url { font-size: 0.72rem; color: var(--blue); }
+    .result-paper { font-size: 0.72rem; color: var(--text-secondary); font-style: italic; margin-top: 2px; }
+    .result-affiliation { font-size: 0.7rem; color: var(--text-tertiary); }
+
+    .result-card-body { padding: 12px 14px; }
+    .message-text {
       font-size: 0.84rem;
-      font-family: monospace;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: var(--surface-alt);
+      min-height: 80px;
       outline: none;
     }
-    .model-fields input:focus { border-color: #c0392b; }
-    .field-hint { font-size: 0.74rem; color: #aaa; margin-top: 5px; }
+    .message-text:focus { border-color: var(--accent); background: white; }
 
-    /* ── 历史记录侧栏 ── */
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      justify-content: flex-end;
+    }
+    .btn-copy {
+      background: var(--text);
+      color: white;
+      font-size: 0.78rem;
+      padding: 6px 16px;
+    }
+    .btn-copy:hover { background: #333; }
+    .btn-copy.copied { background: var(--green); }
+    .btn-export {
+      background: var(--surface-alt);
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      padding: 5px 14px;
+      border: 1px solid var(--border);
+    }
+    .btn-export:hover { background: #eee; }
+    .btn-export:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-tertiary);
+    }
+    .empty-state p { font-size: 0.86rem; line-height: 1.6; }
+
+    /* ── HISTORY SIDEBAR ── */
     .history-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.3);
+      background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(2px);
       z-index: 100;
     }
     .history-overlay.open { display: block; }
-
     .history-panel {
       position: fixed;
-      top: 0;
-      right: -480px;
-      width: 480px;
-      height: 100vh;
-      background: white;
-      box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+      top: 0; right: -480px;
+      width: 480px; height: 100vh;
+      background: var(--surface);
+      box-shadow: -4px 0 30px rgba(0,0,0,0.12);
       z-index: 101;
       transition: right 0.3s ease;
       display: flex;
       flex-direction: column;
     }
     .history-panel.open { right: 0; }
-
     .history-header {
       padding: 16px 20px;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--border-light);
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .history-header h2 { font-size: 1rem; font-weight: 600; }
+    .history-header h2 { font-size: 1rem; font-weight: 700; }
     .history-close {
-      background: none;
+      background: var(--surface-alt);
       border: none;
-      font-size: 1.2rem;
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      font-size: 0.9rem;
       cursor: pointer;
-      color: #999;
-      padding: 4px 8px;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .history-close:hover { color: #333; }
-
+    .history-close:hover { background: #eee; color: var(--text); }
     .history-toolbar {
       padding: 12px 20px;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--border-light);
       display: flex;
       gap: 8px;
     }
     .history-search {
       flex: 1;
-      border: 1.5px solid #e0e0e0;
-      border-radius: 6px;
-      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
       font-size: 0.84rem;
+      font-family: var(--font);
       outline: none;
     }
-    .history-search:focus { border-color: #c0392b; }
+    .history-search:focus { border-color: var(--accent); }
     .btn-clear-history {
-      background: #fee;
-      color: #c0392b;
-      font-size: 0.8rem;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 0.78rem;
       padding: 6px 12px;
       border: 1px solid #f5c6c6;
     }
-    .btn-clear-history:hover { background: #fdd; }
-
-    .history-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 20px;
-    }
-
+    .btn-clear-history:hover { background: #fde8e6; }
+    .history-list { flex: 1; overflow-y: auto; padding: 12px 20px; }
     .history-card {
-      border: 1.5px solid #f0f0f0;
-      border-radius: 8px;
-      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
       overflow: hidden;
-      transition: box-shadow 0.2s;
     }
-    .history-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-
+    .history-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
     .history-card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 8px 12px;
-      background: #fafafa;
-      border-bottom: 1px solid #f0f0f0;
+      background: var(--surface-alt);
+      border-bottom: 1px solid var(--border-light);
     }
-    .history-card-name { font-weight: 600; font-size: 0.85rem; color: #222; }
-    .history-card-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .history-card-time { font-size: 0.72rem; color: #aaa; }
-    .history-card-lang {
-      font-size: 0.68rem;
-      padding: 1px 6px;
-      border-radius: 3px;
-      background: #eef;
-      color: #669;
-    }
+    .history-card-name { font-weight: 600; font-size: 0.84rem; }
+    .history-card-meta { display: flex; align-items: center; gap: 8px; }
+    .history-card-time { font-size: 0.7rem; color: var(--text-tertiary); }
+    .history-card-lang { font-size: 0.66rem; padding: 1px 6px; border-radius: 4px; background: #eef; color: #669; }
     .history-card-delete {
-      background: none;
-      border: none;
-      color: #ccc;
-      cursor: pointer;
-      font-size: 0.85rem;
-      padding: 2px 6px;
+      background: none; border: none;
+      color: var(--text-tertiary); cursor: pointer;
+      font-size: 0.82rem; padding: 2px 6px;
     }
-    .history-card-delete:hover { color: #c0392b; }
-
+    .history-card-delete:hover { color: var(--accent); }
     .history-card-body { padding: 10px 12px; }
     .history-card-message {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       line-height: 1.6;
-      color: #444;
+      color: var(--text-secondary);
       white-space: pre-wrap;
-      max-height: 120px;
+      max-height: 100px;
       overflow: hidden;
     }
     .history-card-message.expanded { max-height: none; }
-    .history-card-actions {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      justify-content: flex-end;
-    }
-    .btn-history-copy {
-      background: #0073b1;
-      color: white;
-      font-size: 0.76rem;
-      padding: 4px 12px;
-    }
-    .btn-history-expand {
-      background: #f0f2f5;
-      color: #555;
-      font-size: 0.76rem;
-      padding: 4px 12px;
-    }
-
-    .history-empty {
-      text-align: center;
-      padding: 60px 20px;
-      color: #ccc;
-    }
-    .history-empty .icon { font-size: 2rem; margin-bottom: 8px; }
+    .history-card-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+    .btn-history-copy { background: var(--text); color: white; font-size: 0.74rem; padding: 4px 12px; }
+    .btn-history-expand { background: var(--surface-alt); color: var(--text-secondary); font-size: 0.74rem; padding: 4px 12px; border: 1px solid var(--border); }
+    .history-empty { text-align: center; padding: 60px 20px; color: var(--text-tertiary); }
   </style>
 </head>
 <body>
 
-<header>
-  <span>🔗</span>
-  <h1>LinkedIn 消息生成器</h1>
-  <div class="header-right">
-    <button class="header-btn" onclick="toggleHistory()">📋 历史记录</button>
+<nav>
+  <span class="nav-brand">Talent Pool</span>
+  <div class="nav-links">
+    <a href="/discover" class="nav-link">Discover</a>
+    <a href="/pool" class="nav-link">Pool</a>
+    <a href="/outreach" class="nav-link active">Outreach</a>
   </div>
-</header>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="toggleHistory()">历史记录</button>
+  </div>
+</nav>
 
-<!-- ── 模式切换 ── -->
-<div class="mode-bar">
-  <span class="mode-label">模式：</span>
-  <span class="mode-tab active" onclick="setMode('community', this)">开源社区</span>
-  <span class="mode-tab" onclick="setMode('academic', this)">学术会议</span>
-</div>
-
-<!-- ── 话术配置栏 ── -->
+<!-- CONFIG BAR -->
 <div class="config-bar">
   <div class="config-toggle" id="config-toggle" onclick="toggleConfig()">
-    <span>▶</span><span class="arrow">▶</span> 话术配置
-    <span style="font-size:0.78rem;color:#aaa;font-weight:400;margin-left:4px;" id="config-summary"></span>
+    <span class="arrow">&#9654;</span>
+    话术配置
+    <span class="config-summary" id="config-summary"></span>
   </div>
 
   <div class="config-body" id="config-body">
-    <div class="config-grid">
+    <!-- Mode -->
+    <div class="mode-row">
+      <span class="mode-label">模式</span>
+      <span class="mode-tab active" onclick="setMode('community', this)">开源社区</span>
+      <span class="mode-tab" onclick="setMode('academic', this)">学术会议</span>
+      <span class="mode-tab" onclick="setMode('custom', this)">自选</span>
+      <span style="margin-left:20px" class="mode-label">语言</span>
+      <span class="mode-tab active" onclick="setLanguage('zh', this)" data-role="lang">中文</span>
+      <span class="mode-tab" onclick="setLanguage('en', this)" data-role="lang">English</span>
+    </div>
 
-      <!-- 开源社区：目标社区 -->
+    <div class="config-grid">
+      <!-- Community -->
       <div class="config-field" id="cfg-community-field">
         <label>目标社区</label>
-        <input id="cfg-community" type="text" placeholder="如：DeepSpeed、PyTorch、OpenJDK…" oninput="updateSummary()" />
-        <div class="preset-chips" id="community-chips">
-          <span class="chip active" onclick="setChip('community', 'DeepSpeed', this)">DeepSpeed</span>
-          <span class="chip" onclick="setChip('community', 'PyTorch', this)">PyTorch</span>
-          <span class="chip" onclick="setChip('community', 'OpenJDK', this)">OpenJDK</span>
-          <span class="chip" onclick="setChip('community', 'LLVM', this)">LLVM</span>
-          <span class="chip" onclick="setChip('community', 'vLLM', this)">vLLM</span>
-          <span class="chip" onclick="setChip('community', 'TVM', this)">TVM</span>
-          <span class="chip" onclick="setChip('community', 'Linux Kernel', this)">Linux Kernel</span>
+        <input id="cfg-community" type="text" placeholder="如 DeepSpeed、PyTorch..." oninput="updateSummary()" />
+        <div class="chip-row" id="community-chips">
+          <span class="chip active" onclick="setChip('community','DeepSpeed',this)">DeepSpeed</span>
+          <span class="chip" onclick="setChip('community','PyTorch',this)">PyTorch</span>
+          <span class="chip" onclick="setChip('community','vLLM',this)">vLLM</span>
+          <span class="chip" onclick="setChip('community','LLVM',this)">LLVM</span>
+          <span class="chip" onclick="setChip('community','TVM',this)">TVM</span>
+          <span class="chip" onclick="setChip('community','Linux Kernel',this)">Kernel</span>
         </div>
       </div>
 
-      <!-- 学术会议：目标会议 -->
+      <!-- Conference -->
       <div class="config-field" id="cfg-conference-field" style="display:none;">
         <label>目标会议</label>
-        <input id="cfg-conference" type="text" placeholder="如：ICML 2025、NeurIPS 2025…" oninput="updateSummary()" />
-        <div class="preset-chips" id="conference-chips">
-          <span class="chip" onclick="setChip('conference', 'ICML 2025', this)">ICML</span>
-          <span class="chip" onclick="setChip('conference', 'NeurIPS 2025', this)">NeurIPS</span>
-          <span class="chip" onclick="setChip('conference', 'CVPR 2025', this)">CVPR</span>
-          <span class="chip" onclick="setChip('conference', 'ICLR 2025', this)">ICLR</span>
-          <span class="chip" onclick="setChip('conference', 'ACL 2025', this)">ACL</span>
-          <span class="chip" onclick="setChip('conference', 'EMNLP 2025', this)">EMNLP</span>
-          <span class="chip" onclick="setChip('conference', 'AAAI 2025', this)">AAAI</span>
-          <span class="chip" onclick="setChip('conference', 'KDD 2025', this)">KDD</span>
+        <input id="cfg-conference" type="text" placeholder="如 ICML 2025..." oninput="updateSummary()" />
+        <div class="chip-row">
+          <span class="chip" onclick="setChip('conference','ICML 2025',this)">ICML</span>
+          <span class="chip" onclick="setChip('conference','NeurIPS 2025',this)">NeurIPS</span>
+          <span class="chip" onclick="setChip('conference','CVPR 2025',this)">CVPR</span>
+          <span class="chip" onclick="setChip('conference','ICLR 2025',this)">ICLR</span>
+          <span class="chip" onclick="setChip('conference','ACL 2025',this)">ACL</span>
+          <span class="chip" onclick="setChip('conference','SIGGRAPH 2025',this)">SIGGRAPH</span>
         </div>
       </div>
 
       <div class="config-field">
         <label>重点技术方向</label>
-        <textarea id="cfg-focus" rows="3" placeholder="如：模型量化、分布式训练、边缘侧推理、算子优化…" oninput="updateSummary()"></textarea>
+        <textarea id="cfg-focus" rows="3" placeholder="模型量化、分布式训练..." oninput="updateSummary()"></textarea>
       </div>
 
       <div class="config-field">
-        <label>额外话术要求</label>
-        <textarea id="cfg-note" rows="3" placeholder="如：强调昇腾生态、提及具体实验室名称…" oninput="updateSummary()"></textarea>
+        <label>额外要求</label>
+        <textarea id="cfg-note" rows="3" placeholder="强调技术合作机会..." oninput="updateSummary()"></textarea>
       </div>
 
-      <!-- 模型配置 -->
+      <!-- Model config -->
       <div class="config-field">
-        <label>模型配置</label>
+        <label>模型</label>
         <div class="provider-tabs">
-          <span class="provider-tab active" onclick="setProvider('anthropic', this)">Claude (Anthropic)</span>
-          <span class="provider-tab" onclick="setProvider('openai', this)">OpenAI 兼容接口</span>
+          <span class="chip active" onclick="setProvider('', this)">自动</span>
+          <span class="chip" onclick="setProvider('anthropic', this)">Claude</span>
+          <span class="chip" onclick="setProvider('openai', this)">OpenAI 兼容</span>
         </div>
         <div class="model-fields">
-          <div style="flex:1">
-            <input id="cfg-model" type="text" placeholder="模型名，如 claude-opus-4-6" />
-            <div class="field-hint" id="model-hint">默认：claude-opus-4-6</div>
-          </div>
+          <input id="cfg-model" type="text" placeholder="由 .env 决定" />
         </div>
-        <div id="api-presets-wrap" style="margin-top:8px;display:none;">
-          <div style="display:flex;gap:6px;margin-bottom:6px;">
-            <span class="chip" onclick="setApiPreset('openrouter', this)">OpenRouter</span>
-            <span class="chip" onclick="setApiPreset('glm', this)">智谱 GLM</span>
-            <span class="chip" onclick="setApiPreset('local', this)">本地部署</span>
-          </div>
-          <input id="cfg-base-url" type="text" style="width:100%" placeholder="API 地址，如 https://openrouter.ai/api/v1" />
-          <div class="field-hint" id="base-url-hint">填写 API 地址；Anthropic 直连无需填写</div>
+        <div class="field-hint" id="model-hint">默认：本地 LM Studio</div>
+        <div id="base-url-wrap" style="margin-top:6px;display:none;">
+          <input id="cfg-base-url" type="text" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:0.82rem;font-family:var(--mono);outline:none;" placeholder="API 地址" />
         </div>
       </div>
-
     </div>
 
-    <!-- 发件人配置 -->
+    <!-- Sender -->
     <div class="sender-section">
-      <div class="sender-section-title">发件人信息（自动保存）</div>
+      <label style="display:block;font-size:0.72rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">发件人信息</label>
       <div class="sender-grid">
-        <div><input id="sender-name" type="text" placeholder="姓名，如 Alex Liu" oninput="debounceSaveSender()" /></div>
-        <div><input id="sender-team" type="text" placeholder="团队，如 华为人才生态团队" oninput="debounceSaveSender()" /></div>
-        <div><input id="sender-contact" type="text" placeholder="联系方式，如 微信：alexlxy599" oninput="debounceSaveSender()" /></div>
+        <input id="sender-name" placeholder="Your name" oninput="debounceSaveSender()" />
+        <input id="sender-team" placeholder="Team / company" oninput="debounceSaveSender()" />
+        <input id="sender-contact" placeholder="WeChat / email" oninput="debounceSaveSender()" />
       </div>
       <div class="sender-saved" id="sender-saved">已保存</div>
-    </div>
-
-    <!-- 语言切换 -->
-    <div class="lang-row">
-      <span class="lang-row-label">消息语言：</span>
-      <span class="lang-tab active" onclick="setLanguage('zh', this)">中文</span>
-      <span class="lang-tab" onclick="setLanguage('en', this)">English</span>
     </div>
   </div>
 </div>
 
-<!-- ── 主体 ── -->
+<!-- MAIN -->
 <div class="container">
-
-  <!-- 左：输入 -->
+  <!-- Left: Input -->
   <div class="panel">
     <div class="panel-header">
       <h2 id="input-panel-title">人员名单</h2>
       <span class="badge" id="count-badge">0 人</span>
     </div>
     <div class="panel-body">
-
-      <div class="api-key-banner">
-        🔑
-        <input class="api-key-input" id="api-key" type="password" placeholder="API Key" />
+      <div class="api-key-row">
+        <label>API Key</label>
+        <input id="api-key" type="password" placeholder="本地模型可留空" />
       </div>
 
-      <textarea class="input-area" id="input-area" placeholder="粘贴名单，每行一条，格式：
-姓名    GitHub用户名    LinkedIn链接
-
-例如：
-Conglong Li    conglongli    https://www.linkedin.com/in/conglongli/
-Guokai Ma    guokaima
-Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
-
-      <p class="hint" id="input-hint">支持 Tab 或多个空格分隔。三列都可选：姓名 + GitHub用户名 + LinkedIn链接，有什么填什么。</p>
+      <textarea class="input-area" id="input-area" placeholder="粘贴名单，每行一条：&#10;姓名    GitHub用户名    LinkedIn链接"></textarea>
+      <p class="hint" id="input-hint">支持 Tab 或多个空格分隔。三列均可选。</p>
 
       <div id="parsed-list" class="parsed-list" style="display:none;"></div>
 
@@ -795,290 +722,238 @@ Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
       </div>
 
       <div class="actions">
-        <button class="btn-primary" id="parse-btn" onclick="handleParse()" style="flex:none;padding:10px 24px;">解析名单</button>
-        <button class="btn-primary" id="gen-btn" onclick="handleGenerate()" disabled>✨ 生成消息</button>
+        <button class="btn-secondary" id="parse-btn" onclick="handleParse()" style="flex:none;">解析</button>
+        <button class="btn-primary" id="gen-btn" onclick="handleGenerate()" disabled>生成消息</button>
       </div>
     </div>
   </div>
 
-  <!-- 右：结果 -->
+  <!-- Right: Results -->
   <div class="panel">
     <div class="panel-header">
       <h2>生成结果</h2>
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="badge" id="result-badge">0 条</span>
-        <button class="btn-export" id="export-btn" onclick="exportExcel()" disabled>⬇ 导出 Excel</button>
+        <button class="btn-export" id="export-btn" onclick="exportExcel()" disabled>导出 Excel</button>
       </div>
     </div>
     <div class="panel-body">
       <div id="results-list" class="results-list">
         <div class="empty-state" id="empty-state">
-          <div class="icon">💬</div>
-          <p>配置话术、粘贴名单，<br>点击生成后消息将逐条显示在这里</p>
+          <p>配置话术参数，粘贴名单<br>生成后消息将逐条出现</p>
         </div>
       </div>
     </div>
   </div>
-
 </div>
 
-<!-- ── 历史记录侧栏 ── -->
+<!-- HISTORY SIDEBAR -->
 <div class="history-overlay" id="history-overlay" onclick="toggleHistory()"></div>
 <div class="history-panel" id="history-panel">
   <div class="history-header">
-    <h2>📋 历史记录</h2>
-    <button class="history-close" onclick="toggleHistory()">✕</button>
+    <h2>历史记录</h2>
+    <button class="history-close" onclick="toggleHistory()">&#10005;</button>
   </div>
   <div class="history-toolbar">
-    <input class="history-search" id="history-search" type="text" placeholder="搜索姓名或内容…" oninput="debounceLoadHistory()" />
-    <button class="btn-clear-history" onclick="clearAllHistory()">清空全部</button>
+    <input class="history-search" id="history-search" placeholder="搜索..." oninput="debounceLoadHistory()" />
+    <button class="btn-clear-history" onclick="clearAllHistory()">清空</button>
   </div>
   <div class="history-list" id="history-list">
-    <div class="history-empty">
-      <div class="icon">📭</div>
-      <p>暂无历史记录</p>
-    </div>
+    <div class="history-empty"><p>暂无记录</p></div>
   </div>
 </div>
 
 <script>
-  let parsedPeople   = [];
-  let parsedPapers   = [];   // academic mode: [{title, abstract, venue, year, authors:[{name, affiliation}]}]
-  let resultCount    = 0;
-  let exportData     = [];
+  let parsedPeople = [];
+  let parsedPapers = [];
+  let resultCount = 0;
+  let exportData = [];
   let currentLanguage = 'zh';
-  let currentMode     = 'community';
-  let currentProvider = 'anthropic';
+  let currentMode = 'community';
+  let currentProvider = '';
 
-  // ── 模式切换 ──
-  function setMode(mode, el) {
-    currentMode = mode;
-    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-
-    const isAcademic = mode === 'academic';
-
-    // 配置栏切换
-    document.getElementById('cfg-community-field').style.display  = isAcademic ? 'none' : '';
-    document.getElementById('cfg-conference-field').style.display  = isAcademic ? '' : 'none';
-
-    // 输入区切换
-    document.getElementById('input-panel-title').textContent = isAcademic ? '论文标题' : '人员名单';
-    document.getElementById('input-area').placeholder = isAcademic
-      ? '每行一个论文标题，例如：\n\nFlashAttention: Fast and Memory-Efficient Exact Attention\nLoRA: Low-Rank Adaptation of Large Language Models\nDeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model'
-      : '粘贴名单，每行一条，格式：\n姓名    LinkedIn链接\n\n例如：\nGuokai Ma    https://www.linkedin.com/in/guokai-ma-7b8aa08/\nConglong Li    https://www.linkedin.com/in/conglongli/';
-    document.getElementById('input-hint').textContent = isAcademic
-      ? '每行一个论文标题，将通过 Semantic Scholar 自动查找作者和摘要。'
-      : '支持 Tab、多个空格或逗号分隔姓名与链接。';
-    document.getElementById('parse-btn').textContent = isAcademic ? '查询论文' : '解析名单';
-    document.getElementById('gen-btn').textContent = '✨ 生成消息';
-    document.getElementById('empty-state').querySelector('p').innerHTML = isAcademic
-      ? '粘贴论文标题、查询作者，<br>点击生成后消息将逐条显示在这里'
-      : '配置话术、粘贴名单，<br>点击生成后消息将逐条显示在这里';
-
-    // 清空已有解析
-    document.getElementById('input-area').value = '';
-    document.getElementById('parsed-list').style.display = 'none';
-    document.getElementById('parsed-list').innerHTML = '';
-    document.getElementById('count-badge').textContent = '0 人';
-    document.getElementById('gen-btn').disabled = true;
-    parsedPeople = [];
-    parsedPapers = [];
-
-    updateSummary();
-  }
-
-  // ── 话术配置 ──
+  // ── Config ──
   function toggleConfig() {
-    const body   = document.getElementById('config-body');
+    const body = document.getElementById('config-body');
     const toggle = document.getElementById('config-toggle');
     const isOpen = body.classList.contains('open');
     body.classList.toggle('open', !isOpen);
     toggle.classList.toggle('open', !isOpen);
   }
 
+  function setMode(mode, el) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-tab:not([data-role])').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    const isAcademic = mode === 'academic';
+    const isCustom = mode === 'custom';
+    document.getElementById('cfg-community-field').style.display = (isAcademic || isCustom) ? 'none' : '';
+    document.getElementById('cfg-conference-field').style.display = isAcademic ? '' : 'none';
+    if (isCustom) {
+      document.getElementById('input-panel-title').textContent = '候选人名单';
+      document.getElementById('input-area').placeholder = '粘贴名单，每行一条：\n姓名    职位/公司    LinkedIn链接\n\n例如：\nZhang Wei    Senior Engineer@Google    https://www.linkedin.com/in/zhangwei/\nLi Ming    Staff ML Engineer@Meta';
+      document.getElementById('input-hint').textContent = '直接输入候选人信息，或从人才库选人后跳转到这里。支持 Tab 分隔。';
+      document.getElementById('parse-btn').textContent = '解析';
+    } else if (isAcademic) {
+      document.getElementById('input-panel-title').textContent = '论文标题';
+      document.getElementById('input-area').placeholder = '每行一个论文标题：\n\nFlashAttention: Fast and Memory-Efficient Exact Attention\nLoRA: Low-Rank Adaptation of Large Language Models';
+      document.getElementById('input-hint').textContent = '每行一个论文标题，将通过 Semantic Scholar 自动查找作者。';
+      document.getElementById('parse-btn').textContent = '查询';
+    } else {
+      document.getElementById('input-panel-title').textContent = '人员名单';
+      document.getElementById('input-area').placeholder = '粘贴名单，每行一条：\n姓名    GitHub用户名    LinkedIn链接';
+      document.getElementById('input-hint').textContent = '支持 Tab 或多个空格分隔。三列均可选。';
+      document.getElementById('parse-btn').textContent = '解析';
+    }
+    document.getElementById('input-area').value = '';
+    document.getElementById('parsed-list').style.display = 'none';
+    document.getElementById('count-badge').textContent = '0 人';
+    document.getElementById('gen-btn').disabled = true;
+    parsedPeople = [];
+    parsedPapers = [];
+    updateSummary();
+  }
+
+  function setLanguage(lang, el) {
+    currentLanguage = lang;
+    document.querySelectorAll('.mode-tab[data-role=lang]').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+
   function setChip(field, value, el) {
     document.getElementById(`cfg-${field}`).value = value;
-    el.closest('.preset-chips').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.closest('.chip-row, .provider-tabs').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
     el.classList.add('active');
     updateSummary();
+  }
+
+  function setProvider(provider, el) {
+    currentProvider = provider;
+    el.closest('.provider-tabs').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('base-url-wrap').style.display = provider === 'openai' ? 'block' : 'none';
+    const modelEl = document.getElementById('cfg-model');
+    const hint = document.getElementById('model-hint');
+    if (provider === '') { modelEl.placeholder = '由 .env 决定'; hint.textContent = '默认：本地 LM Studio'; }
+    else if (provider === 'openai') { modelEl.placeholder = '模型名'; hint.textContent = '填入 API 地址和模型名'; }
+    else { modelEl.placeholder = 'claude-opus-4-6'; hint.textContent = '默认：Claude'; }
   }
 
   function updateSummary() {
     const parts = [];
     if (currentMode === 'academic') {
-      const conf = document.getElementById('cfg-conference').value.trim();
-      if (conf) parts.push(conf);
+      const c = document.getElementById('cfg-conference').value.trim();
+      if (c) parts.push(c);
     } else {
-      const comm = document.getElementById('cfg-community').value.trim();
-      if (comm) parts.push(comm);
+      const c = document.getElementById('cfg-community').value.trim();
+      if (c) parts.push(c);
     }
-    const focus = document.getElementById('cfg-focus').value.trim();
-    if (focus) parts.push(focus.slice(0, 30) + (focus.length > 30 ? '…' : ''));
-    document.getElementById('config-summary').textContent =
-      parts.length ? `（${parts.join(' · ')}）` : '';
+    const f = document.getElementById('cfg-focus').value.trim();
+    if (f) parts.push(f.slice(0, 25) + (f.length > 25 ? '...' : ''));
+    document.getElementById('config-summary').textContent = parts.length ? `(${parts.join(' · ')})` : '';
   }
 
-  function setProvider(provider, el) {
-    currentProvider = provider;
-    document.querySelectorAll('.provider-tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    const isCompat = provider === 'openai';
-    document.getElementById('api-presets-wrap').style.display = isCompat ? 'block' : 'none';
-    document.getElementById('cfg-model').placeholder = isCompat ? '模型名，如 anthropic/claude-sonnet-4' : '模型名，如 claude-opus-4-6';
-    document.getElementById('model-hint').textContent = isCompat ? '默认：glm-4' : '默认：claude-opus-4-6';
-  }
-
-  function setApiPreset(preset, el) {
-    el.closest('div').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
-    const modelEl   = document.getElementById('cfg-model');
-    const baseUrlEl = document.getElementById('cfg-base-url');
-    const hintEl    = document.getElementById('base-url-hint');
-    if (preset === 'openrouter') {
-      baseUrlEl.value = 'https://openrouter.ai/api/v1';
-      modelEl.placeholder = '如 anthropic/claude-sonnet-4';
-      hintEl.textContent = 'OpenRouter：支持数百种模型，用 OpenRouter API Key';
-    } else if (preset === 'glm') {
-      baseUrlEl.value = 'https://open.bigmodel.cn/api/paas/v4';
-      modelEl.placeholder = '如 glm-4-flash';
-      hintEl.textContent = '智谱云：用智谱 API Key';
-    } else {
-      baseUrlEl.value = 'http://localhost:8000/v1';
-      modelEl.placeholder = '本地模型名';
-      hintEl.textContent = '本地部署：填入你的本地服务地址';
-    }
-  }
-
-  // ── 语言切换 ──
-  function setLanguage(lang, el) {
-    currentLanguage = lang;
-    document.querySelectorAll('.lang-tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-  }
-
-  // ── 发件人配置 ──
+  // ── Sender ──
   let senderTimer = null;
-  function debounceSaveSender() {
-    clearTimeout(senderTimer);
-    senderTimer = setTimeout(saveSender, 800);
-  }
-
+  function debounceSaveSender() { clearTimeout(senderTimer); senderTimer = setTimeout(saveSender, 800); }
   async function saveSender() {
-    const data = {
-      name:    document.getElementById('sender-name').value.trim(),
-      team:    document.getElementById('sender-team').value.trim(),
-      contact: document.getElementById('sender-contact').value.trim(),
-    };
     await fetch('/api/sender', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        name: document.getElementById('sender-name').value.trim(),
+        team: document.getElementById('sender-team').value.trim(),
+        contact: document.getElementById('sender-contact').value.trim(),
+      }),
     });
     const el = document.getElementById('sender-saved');
     el.classList.add('show');
     setTimeout(() => el.classList.remove('show'), 2000);
   }
-
   async function loadSender() {
     const resp = await fetch('/api/sender');
     const data = await resp.json();
-    if (data.name)    document.getElementById('sender-name').value = data.name;
-    if (data.team)    document.getElementById('sender-team').value = data.team;
+    if (data.name) document.getElementById('sender-name').value = data.name;
+    if (data.team) document.getElementById('sender-team').value = data.team;
     if (data.contact) document.getElementById('sender-contact').value = data.contact;
   }
 
   function getConfig() {
     return {
-      mode:        currentMode,
-      community:   document.getElementById('cfg-community').value.trim(),
-      conference:  document.getElementById('cfg-conference').value.trim(),
+      mode: currentMode,
+      community: document.getElementById('cfg-community').value.trim(),
+      conference: document.getElementById('cfg-conference').value.trim(),
       focus_areas: document.getElementById('cfg-focus').value.trim(),
       custom_note: document.getElementById('cfg-note').value.trim(),
-      provider:    currentProvider,
-      model_name:  document.getElementById('cfg-model').value.trim(),
-      base_url:    document.getElementById('cfg-base-url')?.value.trim() || '',
-      language:    currentLanguage,
+      provider: currentProvider,
+      model_name: document.getElementById('cfg-model').value.trim(),
+      base_url: document.getElementById('cfg-base-url')?.value.trim() || '',
+      language: currentLanguage,
     };
   }
 
-  // ── 统一入口 ──
-  function handleParse() {
-    if (currentMode === 'academic') lookupPapers();
-    else parseInput();
-  }
+  // ── Parse & Generate ──
+  function handleParse() { currentMode === 'academic' ? lookupPapers() : parseInput(); }
+  function handleGenerate() { currentMode === 'academic' ? generateAcademic() : generateAll(); }
 
-  function handleGenerate() {
-    if (currentMode === 'academic') generateAcademic();
-    else generateAll();
-  }
-
-  // ══════════════════════════════════════
-  //  开源社区模式
-  // ══════════════════════════════════════
+  // Custom mode also uses parseInput and generateAll — the backend handles it via mode='custom' in config
 
   document.getElementById('input-area').addEventListener('input', () => {
     if (currentMode === 'community') parseInput(true);
   });
 
   function parseInput(silent = false) {
-    const raw   = document.getElementById('input-area').value.trim();
+    const raw = document.getElementById('input-area').value.trim();
     const lines = raw.split('\n').filter(l => l.trim());
-
     parsedPeople = [];
     for (const line of lines) {
       const parts = line.trim().split(/\t|  +/).map(p => p.trim()).filter(Boolean);
       if (!parts.length) continue;
-      let name = '', url = '', github = '';
+      let name = '', url = '', github = '', context = '';
       for (const part of parts) {
         if (part.startsWith('http')) url = part;
         else if (!name) name = part;
-        else if (!github) github = part;
+        else if (currentMode === 'custom') {
+          // In custom mode, treat extra columns as context (title@company etc.)
+          context = context ? context + ' | ' + part : part;
+        } else {
+          if (!github) github = part;
+        }
       }
-      if (name) parsedPeople.push({ name, url, github });
+      if (name) parsedPeople.push({ name, url, github, context });
     }
-
     document.getElementById('count-badge').textContent = `${parsedPeople.length} 人`;
-
     const listEl = document.getElementById('parsed-list');
-    if (!parsedPeople.length) {
-      listEl.style.display = 'none';
-      document.getElementById('gen-btn').disabled = true;
-      return;
-    }
-
+    if (!parsedPeople.length) { listEl.style.display = 'none'; document.getElementById('gen-btn').disabled = true; return; }
     listEl.style.display = 'block';
     listEl.innerHTML = parsedPeople.map((p, i) => `
       <div class="parsed-item" id="item-${i}">
         <input type="checkbox" checked data-index="${i}" />
         <span class="parsed-name">${esc(p.name)}</span>
-        ${p.github ? `<span class="parsed-detail" style="color:#333;">@${esc(p.github)}</span>` : ''}
-        <span class="parsed-url">${p.url ? esc(p.url) : '<em style="color:#ccc">无链接</em>'}</span>
+        ${p.context ? `<span class="parsed-detail">${esc(p.context)}</span>` : ''}
+        ${p.github ? `<span class="parsed-detail">@${esc(p.github)}</span>` : ''}
+        <span class="parsed-url">${p.url ? esc(p.url) : ''}</span>
         <div class="status-dot" id="dot-${i}"></div>
       </div>
     `).join('');
-
     document.getElementById('gen-btn').disabled = false;
   }
 
   async function generateAll() {
     const apiKey = document.getElementById('api-key').value.trim();
-    if (!apiKey) { alert('请先输入 API Key'); return; }
-
     const checkboxes = document.querySelectorAll('.parsed-list input[type=checkbox]:checked');
-    const selected   = Array.from(checkboxes).map(cb => parsedPeople[cb.dataset.index]);
+    const selected = Array.from(checkboxes).map(cb => parsedPeople[cb.dataset.index]);
     if (!selected.length) { alert('请选择至少一个人'); return; }
 
     document.getElementById('gen-btn').disabled = true;
-    document.getElementById('gen-btn').textContent = '生成中…';
+    document.getElementById('gen-btn').textContent = '生成中...';
     document.getElementById('results-list').innerHTML = '';
-    resultCount = 0;
-    exportData  = [];
+    resultCount = 0; exportData = [];
     document.getElementById('result-badge').textContent = '0 条';
     document.getElementById('export-btn').disabled = true;
 
     const progWrap = document.getElementById('progress-wrap');
-    const progBar  = document.getElementById('progress-bar');
+    const progBar = document.getElementById('progress-bar');
     progWrap.style.display = 'block';
     progBar.style.width = '0%';
 
@@ -1091,23 +966,20 @@ Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
       body: JSON.stringify({ people: selected, config })
     });
 
-    const reader  = resp.body.getReader();
+    const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
     while (true) {
       const { value, done: streamDone } = await reader.read();
       if (streamDone) break;
-
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop();
-
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
         const data = JSON.parse(line.slice(6));
-
-        if      (data.status === 'searching')  setDot(data.name, 'searching');
+        if (data.status === 'searching') setDot(data.name, 'searching');
         else if (data.status === 'generating') setDot(data.name, 'generating');
         else if (data.status === 'done') {
           setDot(data.name, 'done');
@@ -1118,7 +990,7 @@ Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
           document.getElementById('export-btn').disabled = false;
         } else if (data.status === 'complete') {
           document.getElementById('gen-btn').disabled = false;
-          document.getElementById('gen-btn').textContent = '✨ 生成消息';
+          document.getElementById('gen-btn').textContent = '生成消息';
         }
       }
     }
@@ -1134,7 +1006,6 @@ Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
   function addResultCard(data, config) {
     resultCount++;
     document.getElementById('result-badge').textContent = `${resultCount} 条`;
-
     const tag = config.community || config.conference || '';
     const card = document.createElement('div');
     card.className = 'result-card';
@@ -1146,7 +1017,7 @@ Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
           ${data.paper ? `<div class="result-paper">${esc(data.paper)}</div>` : ''}
           ${data.affiliation ? `<div class="result-affiliation">${esc(data.affiliation)}</div>` : ''}
         </div>
-        ${tag ? `<span style="font-size:0.75rem;color:#999">${esc(tag)}</span>` : ''}
+        ${tag ? `<span style="font-size:0.72rem;color:var(--text-tertiary)">${esc(tag)}</span>` : ''}
       </div>
       <div class="result-card-body">
         <div class="message-text" contenteditable="true" id="msg-${resultCount}">${esc(data.message)}</div>
@@ -1162,121 +1033,82 @@ Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
     const text = document.getElementById(`msg-${id}`).innerText;
     navigator.clipboard.writeText(text).then(() => {
       const btn = document.getElementById(`copy-${id}`);
-      btn.textContent = '已复制 ✓';
+      btn.textContent = '已复制';
       btn.classList.add('copied');
       setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
     });
   }
 
-  // ══════════════════════════════════════
-  //  学术会议模式
-  // ══════════════════════════════════════
-
+  // ── Academic mode ──
   async function lookupPapers() {
-    const raw   = document.getElementById('input-area').value.trim();
+    const raw = document.getElementById('input-area').value.trim();
     const titles = raw.split('\n').map(l => l.trim()).filter(Boolean);
     if (!titles.length) { alert('请输入至少一个论文标题'); return; }
 
     const parseBtn = document.getElementById('parse-btn');
     parseBtn.disabled = true;
-    parseBtn.textContent = '查询中…';
+    parseBtn.textContent = '查询中...';
 
     const listEl = document.getElementById('parsed-list');
     listEl.style.display = 'block';
     listEl.innerHTML = '';
-
     parsedPapers = [];
     let totalAuthors = 0;
 
     for (const title of titles) {
-      // Show searching status
-      const searchItem = document.createElement('div');
-      searchItem.className = 'parsed-item';
-      searchItem.innerHTML = `<span class="parsed-detail" style="color:#f39c12">🔍 查询中：${esc(title.slice(0, 60))}…</span>`;
-      listEl.appendChild(searchItem);
-
       try {
         const resp = await fetch('/api/lookup-paper', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),
         });
-
-        listEl.removeChild(searchItem);
-
         if (!resp.ok) {
-          const errItem = document.createElement('div');
-          errItem.className = 'parsed-item';
-          errItem.innerHTML = `<span class="parsed-detail" style="color:#e74c3c">✕ 未找到：${esc(title.slice(0, 60))}</span>`;
-          listEl.appendChild(errItem);
+          listEl.innerHTML += `<div class="parsed-item"><span class="parsed-detail" style="color:var(--accent)">未找到：${esc(title.slice(0,50))}</span></div>`;
           continue;
         }
-
         const paper = await resp.json();
         parsedPapers.push(paper);
-
-        // Show paper + authors
-        const paperHeader = document.createElement('div');
-        paperHeader.className = 'parsed-item';
-        paperHeader.style.background = '#f8f9fa';
-        paperHeader.style.borderLeft = '3px solid #c0392b';
-        paperHeader.innerHTML = `
-          <input type="checkbox" checked data-paper-idx="${parsedPapers.length - 1}" class="paper-checkbox" />
-          <span class="parsed-name" style="min-width:auto;font-size:0.82rem;">${esc(paper.title.slice(0, 70))}${paper.title.length > 70 ? '…' : ''}</span>
-          <span class="parsed-detail">${esc(paper.venue || '')} ${paper.year || ''} · ${paper.authors.length} 位作者</span>
-        `;
-        listEl.appendChild(paperHeader);
-
-        for (const author of paper.authors) {
+        listEl.innerHTML += `<div class="parsed-item" style="background:var(--surface-alt);border-left:3px solid var(--accent)">
+          <input type="checkbox" checked data-paper-idx="${parsedPapers.length-1}" class="paper-checkbox" />
+          <span class="parsed-name" style="font-size:0.8rem">${esc(paper.title.slice(0,65))}</span>
+          <span class="parsed-detail">${esc(paper.venue||'')} · ${paper.authors.length} authors</span>
+        </div>`;
+        for (const a of paper.authors) {
           totalAuthors++;
-          const authorItem = document.createElement('div');
-          authorItem.className = 'parsed-item';
-          authorItem.style.paddingLeft = '38px';
-          authorItem.innerHTML = `
-            <span class="parsed-name" style="min-width:100px;font-size:0.82rem;">${esc(author.name)}</span>
-            <span class="parsed-detail">${author.affiliation ? esc(author.affiliation) : '<em style="color:#ccc">机构未知</em>'}</span>
-          `;
-          listEl.appendChild(authorItem);
+          listEl.innerHTML += `<div class="parsed-item" style="padding-left:36px">
+            <span class="parsed-name" style="min-width:90px;font-size:0.8rem">${esc(a.name)}</span>
+            <span class="parsed-detail">${a.affiliation ? esc(a.affiliation) : ''}</span>
+          </div>`;
         }
-
-      } catch (e) {
-        listEl.removeChild(searchItem);
-        const errItem = document.createElement('div');
-        errItem.className = 'parsed-item';
-        errItem.innerHTML = `<span class="parsed-detail" style="color:#e74c3c">✕ 查询失败：${esc(title.slice(0, 50))}</span>`;
-        listEl.appendChild(errItem);
+      } catch(e) {
+        listEl.innerHTML += `<div class="parsed-item"><span class="parsed-detail" style="color:var(--accent)">失败：${esc(title.slice(0,50))}</span></div>`;
       }
     }
 
     document.getElementById('count-badge').textContent = `${totalAuthors} 人 / ${parsedPapers.length} 篇`;
     parseBtn.disabled = false;
-    parseBtn.textContent = '查询论文';
+    parseBtn.textContent = '查询';
     document.getElementById('gen-btn').disabled = parsedPapers.length === 0;
   }
 
   async function generateAcademic() {
     const apiKey = document.getElementById('api-key').value.trim();
-    if (!apiKey) { alert('请先输入 API Key'); return; }
-
-    // Collect checked papers
     const checkboxes = document.querySelectorAll('.paper-checkbox:checked');
     const selectedPapers = Array.from(checkboxes).map(cb => parsedPapers[cb.dataset.paperIdx]);
     if (!selectedPapers.length) { alert('请至少选择一篇论文'); return; }
 
-    // Count total authors
     let totalAuthors = 0;
     selectedPapers.forEach(p => totalAuthors += p.authors.length);
 
     document.getElementById('gen-btn').disabled = true;
-    document.getElementById('gen-btn').textContent = '生成中…';
+    document.getElementById('gen-btn').textContent = '生成中...';
     document.getElementById('results-list').innerHTML = '';
-    resultCount = 0;
-    exportData  = [];
+    resultCount = 0; exportData = [];
     document.getElementById('result-badge').textContent = '0 条';
     document.getElementById('export-btn').disabled = true;
 
     const progWrap = document.getElementById('progress-wrap');
-    const progBar  = document.getElementById('progress-bar');
+    const progBar = document.getElementById('progress-bar');
     progWrap.style.display = 'block';
     progBar.style.width = '0%';
 
@@ -1289,152 +1121,95 @@ Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
       body: JSON.stringify({ papers: selectedPapers, config }),
     });
 
-    const reader  = resp.body.getReader();
+    const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
     while (true) {
       const { value, done: streamDone } = await reader.read();
       if (streamDone) break;
-
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop();
-
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
         const data = JSON.parse(line.slice(6));
-
-        if (data.status === 'generating') {
-          // nothing special for now
-        } else if (data.status === 'done') {
+        if (data.status === 'done') {
           done++;
           progBar.style.width = `${(done / totalAuthors) * 100}%`;
           addResultCard(data, config);
-          exportData.push({
-            name: data.name,
-            paper: data.paper || '',
-            affiliation: data.affiliation || '',
-            message: data.message,
-            conference: config.conference || '',
-          });
+          exportData.push({ name: data.name, paper: data.paper||'', affiliation: data.affiliation||'', message: data.message, conference: config.conference||'' });
           document.getElementById('export-btn').disabled = false;
         } else if (data.status === 'complete') {
           document.getElementById('gen-btn').disabled = false;
-          document.getElementById('gen-btn').textContent = '✨ 生成消息';
+          document.getElementById('gen-btn').textContent = '生成消息';
         }
       }
     }
   }
 
-  // ── Excel 导出 ──
+  // ── Excel ──
   function exportExcel() {
     if (!exportData.length) return;
-
     const isAcademic = currentMode === 'academic';
     const rows = exportData.map((d, i) => {
-      const msgEl = document.getElementById(`msg-${i + 1}`);
-      if (isAcademic) {
-        return {
-          '姓名':     d.name,
-          '机构':     d.affiliation || '',
-          '论文':     d.paper || '',
-          '会议':     d.conference || '',
-          '消息内容': msgEl ? msgEl.innerText : d.message,
-        };
-      } else {
-        return {
-          '姓名':     d.name,
-          'LinkedIn': d.url || '',
-          '目标社区': d.community || '',
-          '消息内容': msgEl ? msgEl.innerText : d.message,
-        };
-      }
+      const msgEl = document.getElementById(`msg-${i+1}`);
+      if (isAcademic) return { '姓名': d.name, '机构': d.affiliation, '论文': d.paper, '会议': d.conference, '消息': msgEl ? msgEl.innerText : d.message };
+      return { '姓名': d.name, 'LinkedIn': d.url||'', '社区': d.community, '消息': msgEl ? msgEl.innerText : d.message };
     });
-
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = isAcademic
-      ? [{ wch: 18 }, { wch: 30 }, { wch: 50 }, { wch: 14 }, { wch: 80 }]
-      : [{ wch: 18 }, { wch: 50 }, { wch: 14 }, { wch: 80 }];
-
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, isAcademic ? '学术合作消息' : '招聘消息');
-
+    XLSX.utils.book_append_sheet(wb, ws, '消息');
     const now = new Date();
-    const ts  = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-    const prefix = isAcademic ? '学术合作消息' : '招聘消息';
-    XLSX.writeFile(wb, `${prefix}_${ts}.xlsx`);
+    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    XLSX.writeFile(wb, `消息_${ts}.xlsx`);
   }
 
-  // ── 历史记录 ──
+  // ── History ──
   function toggleHistory() {
     const overlay = document.getElementById('history-overlay');
-    const panel   = document.getElementById('history-panel');
-    const isOpen  = panel.classList.contains('open');
+    const panel = document.getElementById('history-panel');
+    const isOpen = panel.classList.contains('open');
     overlay.classList.toggle('open', !isOpen);
     panel.classList.toggle('open', !isOpen);
     if (!isOpen) loadHistory();
   }
 
   let historyTimer = null;
-  function debounceLoadHistory() {
-    clearTimeout(historyTimer);
-    historyTimer = setTimeout(loadHistory, 400);
-  }
+  function debounceLoadHistory() { clearTimeout(historyTimer); historyTimer = setTimeout(loadHistory, 400); }
 
   async function loadHistory() {
     const search = document.getElementById('history-search').value.trim();
     const resp = await fetch(`/api/history?search=${encodeURIComponent(search)}`);
     const data = await resp.json();
-
     const listEl = document.getElementById('history-list');
-    if (!data.length) {
-      listEl.innerHTML = `<div class="history-empty"><div class="icon">📭</div><p>${search ? '没有匹配的记录' : '暂无历史记录'}</p></div>`;
-      return;
-    }
-
+    if (!data.length) { listEl.innerHTML = `<div class="history-empty"><p>${search ? '无匹配' : '暂无记录'}</p></div>`; return; }
     listEl.innerHTML = data.map(item => `
       <div class="history-card" id="hcard-${item.id}">
         <div class="history-card-header">
-          <div>
-            <span class="history-card-name">${esc(item.name)}</span>
-            <span class="history-card-lang">${item.language === 'en' ? 'EN' : '中'}</span>
-          </div>
+          <span class="history-card-name">${esc(item.name)}</span>
           <div class="history-card-meta">
-            ${item.community ? `<span style="font-size:0.72rem;color:#999">${esc(item.community)}</span>` : ''}
             <span class="history-card-time">${formatTime(item.created_at)}</span>
-            <button class="history-card-delete" onclick="deleteHistoryItem(${item.id})">✕</button>
+            <button class="history-card-delete" onclick="deleteHistoryItem(${item.id})">&#10005;</button>
           </div>
         </div>
         <div class="history-card-body">
           <div class="history-card-message" id="hmsg-${item.id}">${esc(item.message)}</div>
           <div class="history-card-actions">
-            <button class="btn-history-expand" onclick="toggleExpand(${item.id})">展开</button>
-            <button class="btn-history-copy" onclick="copyHistoryMsg(${item.id})">复制</button>
+            <button class="btn-history-expand" onclick="document.getElementById('hmsg-${item.id}').classList.toggle('expanded')">展开</button>
+            <button class="btn-history-copy" onclick="navigator.clipboard.writeText(document.getElementById('hmsg-${item.id}').innerText)">复制</button>
           </div>
         </div>
       </div>
     `).join('');
   }
 
-  function toggleExpand(id) {
-    const el = document.getElementById(`hmsg-${id}`);
-    el.classList.toggle('expanded');
-  }
-
-  function copyHistoryMsg(id) {
-    const text = document.getElementById(`hmsg-${id}`).innerText;
-    navigator.clipboard.writeText(text);
-  }
-
   async function deleteHistoryItem(id) {
     await fetch(`/api/history/${id}`, { method: 'DELETE' });
-    const card = document.getElementById(`hcard-${id}`);
-    if (card) card.remove();
+    document.getElementById(`hcard-${id}`)?.remove();
   }
-
   async function clearAllHistory() {
-    if (!confirm('确定要清空所有历史记录吗？')) return;
+    if (!confirm('确定清空？')) return;
     await fetch('/api/history/clear', { method: 'POST' });
     loadHistory();
   }
@@ -1442,25 +1217,49 @@ Heyang Qin    https://www.linkedin.com/in/heyangqin/"></textarea>
   function formatTime(ts) {
     if (!ts) return '';
     const d = new Date(ts + 'Z');
-    const now = new Date();
-    const diff = now - d;
-    if (diff < 60000)       return '刚刚';
-    if (diff < 3600000)     return `${Math.floor(diff / 60000)} 分钟前`;
-    if (diff < 86400000)    return `${Math.floor(diff / 3600000)} 小时前`;
-    if (diff < 604800000)   return `${Math.floor(diff / 86400000)} 天前`;
+    const diff = Date.now() - d;
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}小时前`;
     return `${d.getMonth()+1}/${d.getDate()}`;
   }
 
   function esc(str) {
-    return String(str || '')
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── 初始化 ──
-  toggleConfig();
+  // ── Init ──
   updateSummary();
   loadSender();
+
+  // Receive from talent pool
+  (function checkTalentPool() {
+    const raw = sessionStorage.getItem('selected_people');
+    if (!raw) return;
+    sessionStorage.removeItem('selected_people');
+    const people = JSON.parse(raw);
+    if (!people.length) return;
+
+    // Switch to custom mode for talent pool candidates
+    const customTab = document.querySelectorAll('.mode-tab:not([data-role])')[2]; // 3rd tab = 自选
+    setMode('custom', customTab);
+
+    // Build lines with context (title + company)
+    const lines = people.map(p => {
+      const parts = [p.name];
+      const ctx = [p.title, p.company].filter(Boolean).join(' @ ');
+      if (ctx) parts.push(ctx);
+      if (p.url) parts.push(p.url);
+      return parts.join('\t');
+    });
+    document.getElementById('input-area').value = lines.join('\n');
+    parseInput();
+
+    // Open config panel
+    const body = document.getElementById('config-body');
+    const toggle = document.getElementById('config-toggle');
+    if (!body.classList.contains('open')) { body.classList.add('open'); toggle.classList.add('open'); }
+  })();
 </script>
 </body>
 </html>

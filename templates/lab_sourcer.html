@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discover — Talent Pool</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --border: #e4e6ea;
+      --text-primary: #1a1a1a;
+      --text-secondary: #4a4a4a;
+      --text-tertiary: #8a8a8a;
+      --accent: #3d5a80;
+      --accent-hover: #2c4a6e;
+      --accent-light: #e8eef6;
+      --accent-blue: #5a7de0;
+      --nav-bg: #2b3a4e;
+      --tag-bg: #f0f1f3;
+      --tag-text: #555;
+      --radius: 8px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Nav ── */
+    header {
+      background: var(--nav-bg);
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.05rem;
+      white-space: nowrap;
+    }
+    .nav-links {
+      display: flex;
+      gap: 2px;
+      margin-left: 8px;
+    }
+    .nav-link {
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      padding: 5px 13px;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .nav-link:hover { color: white; background: rgba(255,255,255,0.1); }
+    .nav-link.active { color: white; background: rgba(255,255,255,0.14); font-weight: 600; }
+
+    /* ── Layout ── */
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 32px;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .main-col { min-width: 0; }
+    .sidebar-col {
+      position: sticky;
+      top: 64px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card-header {
+      padding: 14px 18px 0;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .card-body { padding: 14px 18px 18px; }
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      padding: 14px 18px 0;
+    }
+
+    /* ── Mode Tabs (pill style matching person.html) ── */
+    .mode-group {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .mode-btn {
+      padding: 5px 14px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: transparent;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mode-btn.active { background: #2c2c2c; border-color: #2c2c2c; color: white; }
+
+    /* ── Inputs ── */
+    .form-row { margin-bottom: 12px; }
+    .form-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 5px;
+    }
+    input[type="text"], input[type="url"], input[type="password"], textarea, select {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 0.84rem;
+      color: var(--text-primary);
+      background: #fff;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent-blue); }
+    textarea { resize: vertical; min-height: 90px; }
+
+    /* Autocomplete dropdown */
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-list {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 0; right: 0;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      z-index: 200;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+    }
+    .autocomplete-list.open { display: block; }
+    .autocomplete-item {
+      padding: 8px 12px;
+      font-size: 0.84rem;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover { background: var(--accent-light); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: #2c2c2c;
+      color: white;
+      border-color: #2c2c2c;
+    }
+    .btn-primary:hover { background: #444; border-color: #444; }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: #eaeaea;
+    }
+    .btn-secondary:hover { border-color: #ccc; color: var(--text-primary); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-accent {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .btn-accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .btn-accent:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    /* ── Faculty Table ── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin-top: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    th {
+      background: #f8f9fa;
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      color: var(--text-secondary);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+    td a { color: var(--accent-blue); text-decoration: none; font-size: 0.8rem; }
+    td a:hover { text-decoration: underline; }
+    td input[type="checkbox"] { cursor: pointer; accent-color: #2c2c2c; }
+
+    .area-chip {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 3px;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: 0.72rem;
+      font-weight: 500;
+      margin: 1px 2px 1px 0;
+    }
+
+    /* ── Progress ── */
+    .progress-wrap { margin-top: 10px; }
+    .progress-bar-bg {
+      background: #eee;
+      border-radius: 4px;
+      height: 5px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      background: #2c2c2c;
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s;
+      border-radius: 4px;
+    }
+    .progress-label {
+      font-size: 0.76rem;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* ── Status Log ── */
+    .status-log {
+      background: #1a1a2e;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 0.75rem;
+      color: #8fb89a;
+      line-height: 1.7;
+      min-height: 80px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      display: none;
+    }
+    .status-log.visible { display: block; }
+    .log-entry { margin: 0; }
+    .log-entry.log-error { color: #c07070; }
+    .log-entry.log-warn { color: #c4a26a; }
+    .log-entry.log-dim { color: #5a7a6a; }
+
+    /* ── Results Table ── */
+    .results-count {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .results-count strong { color: var(--text-primary); }
+
+    .badge-role {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+    .badge-source {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+    }
+
+    /* Editable results table */
+    td.editable {
+      cursor: text;
+      border-radius: 3px;
+      transition: background 0.15s;
+      min-width: 40px;
+    }
+    td.editable:hover { background: var(--accent-light); }
+    td.editable:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+      background: #fff;
+    }
+    .role-select {
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--accent-light);
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .role-select:focus { outline: 2px solid var(--accent); }
+    .btn-delete-row {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      font-size: 0.85rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    tr:hover .btn-delete-row { opacity: 1; }
+    .btn-delete-row:hover { color: #e53e3e; background: #fee; }
+
+    /* Import summary banner */
+    .import-summary {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 0.84rem;
+      margin-top: 12px;
+      background: #f8f9fa;
+      display: none;
+    }
+    .import-summary.visible { display: block; }
+    .import-stat {
+      display: inline-block;
+      margin-right: 16px;
+      font-weight: 500;
+    }
+    .import-stat span { font-weight: 700; color: var(--text-primary); }
+    .import-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+    .import-link:hover { text-decoration: underline; }
+
+    /* ── LLM Config ── */
+    .preset-group { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+    .preset-btn {
+      padding: 4px 11px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: transparent;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .preset-btn.active { background: #2c2c2c; border-color: #2c2c2c; color: white; }
+
+    .collapse-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      padding: 13px 18px;
+    }
+    .collapse-toggle .toggle-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .collapse-toggle .toggle-arrow {
+      font-size: 0.7rem;
+      color: var(--text-tertiary);
+      transition: transform 0.2s;
+    }
+    .collapse-toggle.open .toggle-arrow { transform: rotate(180deg); }
+    .collapse-body { padding: 0 18px 16px; }
+    .collapse-body.hidden { display: none; }
+
+    /* Empty state */
+    .empty-state {
+      padding: 36px 0;
+      text-align: center;
+      color: var(--text-tertiary);
+      font-size: 0.84rem;
+    }
+
+    /* Section divider */
+    .sep { height: 1px; background: var(--border); margin: 14px 0; }
+
+    /* ── Responsive ── */
+    @media (max-width: 860px) {
+      .page { grid-template-columns: 1fr; }
+      .sidebar-col { position: static; }
+    }
+    @media (max-width: 600px) {
+      .page { padding: 16px; }
+      header { padding: 10px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<header>
+  <span class="nav-brand">Talent Pool</span>
+  <nav class="nav-links">
+    <a href="/discover" class="nav-link active">Discover</a>
+    <a href="/pool" class="nav-link">Pool</a>
+    <a href="/outreach" class="nav-link">Outreach</a>
+  </nav>
+</header>
+
+<!-- ── Page ── -->
+<div class="page">
+
+  <!-- ── Main Column ── -->
+  <div class="main-col">
+
+    <!-- Mode Selector -->
+    <div class="card">
+      <div class="card-header">Search Mode</div>
+      <div class="card-body">
+        <div class="mode-group">
+          <button class="mode-btn active" onclick="switchMode('csrankings', this)">CSRankings Search</button>
+          <button class="mode-btn" onclick="switchMode('smart', this)">Smart Search</button>
+          <button class="mode-btn" onclick="switchMode('dept', this)">Department Page</button>
+          <button class="mode-btn" onclick="switchMode('conference', this)">Conference Papers</button>
+          <button class="mode-btn" onclick="switchMode('manual', this)">Manual Input</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CSRankings Mode ── -->
+    <div id="panel-csrankings" class="card">
+      <div class="card-header">CSRankings Faculty Search</div>
+      <div class="card-body">
+        <div class="form-row">
+          <label class="form-label">Institution</label>
+          <div class="autocomplete-wrap">
+            <input type="text" id="inst-input" placeholder="Type an institution name..." autocomplete="off"
+              oninput="onInstInput()" onkeydown="onInstKeydown(event)" />
+            <div class="autocomplete-list" id="inst-dropdown"></div>
+          </div>
+        </div>
+        <div class="form-row" style="margin-top:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;color:var(--text-secondary);cursor:pointer;">
+            <input type="checkbox" id="faculty-show-all" style="width:16px;height:16px;" />
+            Show all faculty (not just AI-related)
+          </label>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="searchFaculty()">Search Faculty</button>
+        </div>
+        <div id="faculty-table-wrap" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:4px;">
+            <div id="faculty-count" class="results-count"></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="selectAllFaculty()">Select All</button>
+              <button class="btn btn-secondary" onclick="selectNoneFaculty()">Select None</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:36px;"></th>
+                  <th>Name</th>
+                  <th>Homepage</th>
+                  <th>Research Areas</th>
+                </tr>
+              </thead>
+              <tbody id="faculty-tbody"></tbody>
+            </table>
+          </div>
+          <!-- Extract Config -->
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+            <div class="form-row" style="margin-bottom:8px;">
+              <label class="form-label">Search Strategy</label>
+              <div class="preset-group">
+                <button class="preset-btn active" id="strat-search" onclick="setStrategy('search', this)">Web Search</button>
+                <button class="preset-btn" id="strat-fast" onclick="setStrategy('fast', this)">Homepage Only</button>
+              </div>
+              <p style="color:var(--text-tertiary);font-size:0.72rem;margin-top:4px;" id="strategy-hint">
+                Uses web search API to find lab pages and members. More thorough but slower. Requires Anthropic API or capable model.
+              </p>
+            </div>
+            <div class="form-row" style="margin-bottom:8px;">
+              <label class="form-label">LLM Provider</label>
+              <div class="preset-group">
+                <button class="preset-btn" onclick="setExtractPreset('anthropic', this)">Anthropic</button>
+                <button class="preset-btn active" onclick="setExtractPreset('openrouter', this)">OpenRouter</button>
+                <button class="preset-btn" onclick="setExtractPreset('lmstudio', this)">LM Studio</button>
+                <button class="preset-btn" onclick="setExtractPreset('custom', this)">Custom</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">API Key</label>
+              <input type="password" id="extract-api-key" value="" placeholder="API key" />
+            </div>
+            <div class="form-row">
+              <label class="form-label">Model</label>
+              <select id="extract-model-select" onchange="onModelSelect(this)" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;margin-bottom:6px;background:#fff;">
+              </select>
+              <input type="text" id="extract-model" value="deepseek/deepseek-v4-pro" placeholder="Or type model ID manually" style="font-size:0.78rem;" />
+            </div>
+            <input type="hidden" id="extract-base-url" value="https://openrouter.ai/api/v1" />
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-extract" onclick="startBatchFastScrape()" disabled>Extract Lab Members</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Department Page Mode ── -->
+    <div id="panel-dept" class="card" style="display:none;">
+      <div class="card-header">Department Page Scraper</div>
+      <div class="card-body">
+        <div class="form-row">
+          <label class="form-label">Department Page URL</label>
+          <input type="url" id="dept-url" placeholder="https://..." />
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="fetchDeptFaculty()">Fetch Faculty List</button>
+        </div>
+        <div id="dept-table-wrap" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:4px;">
+            <div id="dept-count" class="results-count"></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="selectAllDept()">Select All</button>
+              <button class="btn btn-secondary" onclick="selectNoneDept()">Select None</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:36px;"></th>
+                  <th>Name</th>
+                  <th>Homepage</th>
+                  <th>Title</th>
+                </tr>
+              </thead>
+              <tbody id="dept-tbody"></tbody>
+            </table>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="exportDeptCSV()">Export CSV</button>
+            <button class="btn btn-primary" id="btn-dept-scrape" onclick="startDeptDeepScrape()" disabled>Deep Scrape Selected</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Conference Papers Mode ── -->
+    <div id="panel-conference" class="card" style="display:none;">
+      <div class="card-header">Conference Papers</div>
+      <div class="card-body">
+        <div class="coming-soon" style="text-align:center;padding:32px 16px;">
+          <div style="font-size:2rem;margin-bottom:12px;opacity:0.3;">&#128218;</div>
+          <div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);margin-bottom:8px;">Coming Soon</div>
+          <p style="color:var(--text-tertiary);font-size:0.8rem;max-width:400px;margin:0 auto;line-height:1.5;">
+            Upload a conference paper list (NeurIPS, ICML, ICLR, ACL, CVPR...) or paste a proceedings URL to automatically identify first-author PhD students and postdocs as potential candidates.
+          </p>
+          <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">NeurIPS 2025</span>
+            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">ICML 2025</span>
+            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">ICLR 2025</span>
+            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">ACL 2025</span>
+            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">CVPR 2025</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Manual Input Mode ── -->
+    <div id="panel-manual" class="card" style="display:none;">
+      <div class="card-header">Manual Input</div>
+      <div class="card-body">
+        <div class="form-row">
+          <label class="form-label">Professors — one per line: Name | Homepage URL</label>
+          <textarea id="manual-input" placeholder="Name | Homepage URL (one per line)"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="startManualScrape()">Extract Lab Members</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Smart Search Mode ── -->
+    <div id="panel-smart" class="card" style="display:none;">
+      <div class="card-header">Smart Search</div>
+      <div class="card-body">
+        <p style="color:var(--text-tertiary);font-size:0.78rem;margin-bottom:12px;">
+          Give a professor's homepage URL. Fetches lab pages automatically, then one LLM call to extract members. Uses the LLM Config from the sidebar.
+        </p>
+        <div class="form-row">
+          <label class="form-label">Homepage URL</label>
+          <input type="url" id="smart-homepage" placeholder="https://..." />
+        </div>
+        <div class="form-row">
+          <label class="form-label">Professor Name (optional, improves accuracy)</label>
+          <input type="text" id="smart-prof-name" placeholder="Professor name" />
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-smart-search" onclick="startSmartScrape()">Extract Lab Members</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Progress + Log ── -->
+    <div id="progress-card" class="card" style="display:none;">
+      <div class="card-header">Progress</div>
+      <div class="card-body">
+        <div class="progress-wrap">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-label" id="progress-label">Starting...</div>
+        </div>
+        <div class="status-log visible" id="status-log"></div>
+      </div>
+    </div>
+
+    <!-- ── Results ── -->
+    <div id="results-card" class="card" style="display:none;">
+      <div class="card-header">Discovered Members</div>
+      <div class="card-body">
+        <div class="results-count" id="results-count"></div>
+        <div class="table-wrap" style="margin-top:8px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Source (Professor)</th>
+                <th>Research Area</th>
+                <th>Grad</th>
+                <th>Email</th>
+                <th>Personal Page</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-import" onclick="importToTalentPool()">Import to Talent Pool</button>
+          <button class="btn btn-secondary" id="btn-enrich" onclick="enrichFromPages()">Enrich from Personal Pages</button>
+          <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
+          <button class="btn btn-secondary" onclick="copyResults()">Copy as Text</button>
+        </div>
+        <div class="import-summary" id="import-summary"></div>
+      </div>
+    </div>
+
+  </div><!-- /main-col -->
+
+  <!-- ── Sidebar: LLM Config ── -->
+  <div class="sidebar-col">
+    <div class="card">
+      <div class="collapse-toggle open" id="llm-toggle" onclick="toggleLLMPanel()">
+        <span class="toggle-label">LLM Config</span>
+        <span class="toggle-arrow">&#9660;</span>
+      </div>
+      <div class="collapse-body" id="llm-body">
+        <div class="form-row" style="margin-bottom:10px;">
+          <label class="form-label">Preset</label>
+          <div class="preset-group">
+            <button class="preset-btn active" onclick="setPreset('lmstudio', this)">LM Studio</button>
+            <button class="preset-btn" onclick="setPreset('openrouter', this)">OpenRouter</button>
+            <button class="preset-btn" onclick="setPreset('custom', this)">Custom</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Base URL</label>
+          <input type="text" id="llm-base-url" value="http://127.0.0.1:1234/v1" />
+        </div>
+        <div class="form-row">
+          <label class="form-label">Model</label>
+          <input type="text" id="llm-model" value="qwen3.5-9b-deepseek-v4-flash" />
+        </div>
+        <div class="form-row">
+          <label class="form-label">API Key</label>
+          <input type="password" id="llm-api-key" value="lm-studio" />
+        </div>
+      </div>
+    </div>
+  </div><!-- /sidebar-col -->
+
+</div><!-- /page -->
+
+<script>
+// ─────────────────────────────────────────
+// State
+// ─────────────────────────────────────────
+let currentMode = 'csrankings';
+let allInstitutions = [];
+let acHighlight = -1;
+let facultyList = [];       // CSRankings faculty
+let deptFacultyList = [];   // Dept page faculty
+let discoveredMembers = []; // Final results
+
+// ─────────────────────────────────────────
+// Mode Switching
+// ─────────────────────────────────────────
+function switchMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-group .mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-csrankings').style.display  = mode === 'csrankings'  ? 'block' : 'none';
+  document.getElementById('panel-smart').style.display       = mode === 'smart'       ? 'block' : 'none';
+  document.getElementById('panel-dept').style.display        = mode === 'dept'        ? 'block' : 'none';
+  document.getElementById('panel-conference').style.display  = mode === 'conference'  ? 'block' : 'none';
+  document.getElementById('panel-manual').style.display      = mode === 'manual'      ? 'block' : 'none';
+}
+
+// ─────────────────────────────────────────
+// LLM Config
+// ─────────────────────────────────────────
+const PRESETS = {
+  lmstudio:   { base_url: 'http://127.0.0.1:1234/v1',       model: 'qwen3.5-9b-deepseek-v4-flash', key: 'lm-studio' },
+  openrouter: { base_url: 'https://openrouter.ai/api/v1',   model: 'openai/gpt-4o-mini',            key: '' },
+  custom:     { base_url: '',                                model: '',                              key: '' }
+};
+
+function setPreset(name, btn) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const p = PRESETS[name];
+  if (p) {
+    if (p.base_url) document.getElementById('llm-base-url').value = p.base_url;
+    if (p.model)    document.getElementById('llm-model').value    = p.model;
+    if (p.key)      document.getElementById('llm-api-key').value  = p.key;
+  }
+}
+
+function getLLMConfig() {
+  return {
+    base_url: document.getElementById('llm-base-url').value.trim(),
+    model:    document.getElementById('llm-model').value.trim(),
+    api_key:  document.getElementById('llm-api-key').value.trim()
+  };
+}
+
+function toggleLLMPanel() {
+  const toggle = document.getElementById('llm-toggle');
+  const body   = document.getElementById('llm-body');
+  toggle.classList.toggle('open');
+  body.classList.toggle('hidden');
+}
+
+// ─────────────────────────────────────────
+// Institution Autocomplete
+// ─────────────────────────────────────────
+async function loadInstitutions() {
+  try {
+    const res = await fetch('/api/institutions');
+    if (res.ok) allInstitutions = await res.json();
+  } catch(e) { /* silently skip if not available yet */ }
+}
+
+function onInstInput() {
+  const q = document.getElementById('inst-input').value.toLowerCase().trim();
+  const dd = document.getElementById('inst-dropdown');
+  acHighlight = -1;
+  if (!q || q.length < 2) { dd.classList.remove('open'); return; }
+  const matches = allInstitutions.filter(n => n.toLowerCase().includes(q)).slice(0, 12);
+  if (!matches.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = matches.map(n =>
+    `<div class="autocomplete-item" onclick="selectInstitution('${escHtml(n)}')">${escHtml(n)}</div>`
+  ).join('');
+  dd.classList.add('open');
+}
+
+function onInstKeydown(e) {
+  const dd = document.getElementById('inst-dropdown');
+  const items = dd.querySelectorAll('.autocomplete-item');
+  if (e.key === 'ArrowDown') {
+    acHighlight = Math.min(acHighlight + 1, items.length - 1);
+    items.forEach((el, i) => el.style.background = i === acHighlight ? 'var(--accent-light)' : '');
+    e.preventDefault();
+  } else if (e.key === 'ArrowUp') {
+    acHighlight = Math.max(acHighlight - 1, -1);
+    items.forEach((el, i) => el.style.background = i === acHighlight ? 'var(--accent-light)' : '');
+    e.preventDefault();
+  } else if (e.key === 'Enter') {
+    if (acHighlight >= 0 && items[acHighlight]) {
+      selectInstitution(items[acHighlight].textContent);
+    } else {
+      searchFaculty();
+    }
+    e.preventDefault();
+  } else if (e.key === 'Escape') {
+    dd.classList.remove('open');
+  }
+}
+
+function selectInstitution(name) {
+  document.getElementById('inst-input').value = name;
+  document.getElementById('inst-dropdown').classList.remove('open');
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.autocomplete-wrap')) {
+    document.getElementById('inst-dropdown').classList.remove('open');
+  }
+});
+
+// ─────────────────────────────────────────
+// CSRankings: Search Faculty
+// ─────────────────────────────────────────
+async function searchFaculty() {
+  const inst = document.getElementById('inst-input').value.trim();
+  if (!inst) { alert('Please enter an institution name.'); return; }
+  document.getElementById('faculty-table-wrap').style.display = 'none';
+
+  const showAll = document.getElementById('faculty-show-all').checked;
+  try {
+    const res = await fetch('/api/faculty', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ institution: inst, mode: showAll ? 'all' : 'ai' })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    facultyList = await res.json();
+    renderFaculty(facultyList);
+  } catch(e) {
+    showLog('error', `Failed to fetch faculty: ${e.message}`);
+  }
+}
+
+function renderFaculty(list) {
+  const wrap = document.getElementById('faculty-table-wrap');
+  const tbody = document.getElementById('faculty-tbody');
+  const countEl = document.getElementById('faculty-count');
+
+  tbody.innerHTML = list.map((p, i) => {
+    const areas = (p.areas || []).map(a => `<span class="area-chip">${escHtml(a)}</span>`).join('');
+    const hp = p.homepage ? `<a href="${escAttr(p.homepage)}" target="_blank" rel="noopener">${escHtml(trimUrl(p.homepage))}</a>` : '—';
+    return `<tr>
+      <td><input type="checkbox" class="fac-check" data-idx="${i}" onchange="updateExtractBtn()" /></td>
+      <td style="font-weight:500;color:var(--text-primary);">${escHtml(p.name)}</td>
+      <td>${hp}</td>
+      <td>${areas || '<span style="color:var(--text-tertiary);font-size:0.78rem;">—</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  countEl.innerHTML = `<strong>${list.length}</strong> faculty found`;
+  wrap.style.display = 'block';
+  document.getElementById('btn-extract').disabled = true;
+}
+
+function selectAllFaculty() {
+  document.querySelectorAll('.fac-check').forEach(cb => cb.checked = true);
+  updateExtractBtn();
+}
+function selectNoneFaculty() {
+  document.querySelectorAll('.fac-check').forEach(cb => cb.checked = false);
+  updateExtractBtn();
+}
+function updateExtractBtn() {
+  const any = Array.from(document.querySelectorAll('.fac-check')).some(cb => cb.checked);
+  document.getElementById('btn-extract').disabled = !any;
+}
+
+function getSelectedFaculty() {
+  return Array.from(document.querySelectorAll('.fac-check'))
+    .filter(cb => cb.checked)
+    .map(cb => facultyList[parseInt(cb.dataset.idx)]);
+}
+
+// ─────────────────────────────────────────
+// CSRankings: Batch Scrape (SSE)
+// ─────────────────────────────────────────
+async function startBatchScrape() {
+  const selected = getSelectedFaculty();
+  if (!selected.length) return;
+  const cfg = getLLMConfig();
+  showProgressCard();
+  resetResults();
+
+  const professors = selected.map(p => ({ name: p.name, homepage: p.homepage || '' }));
+  await streamFetch('/api/lab-sourcer/scrape-batch', {
+    professors, ...cfg
+  });
+}
+
+// ─────────────────────────────────────────
+// Department Page Mode
+// ─────────────────────────────────────────
+async function fetchDeptFaculty() {
+  const url = document.getElementById('dept-url').value.trim();
+  if (!url) { alert('Please enter a department page URL.'); return; }
+  const cfg = getLLMConfig();
+  document.getElementById('dept-table-wrap').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/lab-sourcer/scrape-dept', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, ...cfg })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    deptFacultyList = await res.json();
+    renderDeptFaculty(deptFacultyList);
+  } catch(e) {
+    showLog('error', `Failed to fetch department page: ${e.message}`);
+    showProgressCard();
+    logEntry(`Error: ${e.message}`, 'log-error');
+  }
+}
+
+function renderDeptFaculty(list) {
+  const wrap  = document.getElementById('dept-table-wrap');
+  const tbody = document.getElementById('dept-tbody');
+  const countEl = document.getElementById('dept-count');
+
+  tbody.innerHTML = list.map((p, i) => {
+    const hp = p.homepage ? `<a href="${escAttr(p.homepage)}" target="_blank" rel="noopener">${escHtml(trimUrl(p.homepage))}</a>` : '—';
+    return `<tr>
+      <td><input type="checkbox" class="dept-check" data-idx="${i}" onchange="updateDeptScrapeBtn()" /></td>
+      <td style="font-weight:500;color:var(--text-primary);">${escHtml(p.name)}</td>
+      <td>${hp}</td>
+      <td style="color:var(--text-tertiary);">${escHtml(p.title || '—')}</td>
+    </tr>`;
+  }).join('');
+
+  countEl.innerHTML = `<strong>${list.length}</strong> faculty found`;
+  wrap.style.display = 'block';
+  document.getElementById('btn-dept-scrape').disabled = true;
+}
+
+function selectAllDept() {
+  document.querySelectorAll('.dept-check').forEach(cb => cb.checked = true);
+  updateDeptScrapeBtn();
+}
+function selectNoneDept() {
+  document.querySelectorAll('.dept-check').forEach(cb => cb.checked = false);
+  updateDeptScrapeBtn();
+}
+function updateDeptScrapeBtn() {
+  const any = Array.from(document.querySelectorAll('.dept-check')).some(cb => cb.checked);
+  document.getElementById('btn-dept-scrape').disabled = !any;
+}
+
+function getSelectedDeptFaculty() {
+  return Array.from(document.querySelectorAll('.dept-check'))
+    .filter(cb => cb.checked)
+    .map(cb => deptFacultyList[parseInt(cb.dataset.idx)]);
+}
+
+function exportDeptCSV() {
+  const rows = [['Name', 'Homepage', 'Title']];
+  deptFacultyList.forEach(p => rows.push([p.name || '', p.homepage || '', p.title || '']));
+  downloadCSV(rows, 'dept_faculty.csv');
+}
+
+async function startDeptDeepScrape() {
+  const selected = getSelectedDeptFaculty();
+  if (!selected.length) return;
+  const cfg = getLLMConfig();
+  showProgressCard();
+  resetResults();
+
+  const professors = selected.map(p => ({ name: p.name, homepage: p.homepage || '' }));
+  await streamFetch('/api/lab-sourcer/scrape-selected', {
+    professors, ...cfg
+  });
+}
+
+// ─────────────────────────────────────────
+// Manual Input Mode
+// ─────────────────────────────────────────
+async function startManualScrape() {
+  const raw = document.getElementById('manual-input').value.trim();
+  if (!raw) { alert('Please enter at least one professor entry.'); return; }
+
+  const professors = raw.split('\n').map(line => {
+    const parts = line.split('|').map(s => s.trim());
+    return { name: parts[0] || '', homepage: parts[1] || '' };
+  }).filter(p => p.name);
+
+  if (!professors.length) { alert('No valid entries found. Format: Name | Homepage URL'); return; }
+
+  const cfg = getLLMConfig();
+  showProgressCard();
+  resetResults();
+
+  await streamFetch('/api/lab-sourcer/scrape-manual', {
+    professors, ...cfg
+  });
+}
+
+// ─────────────────────────────────────────
+// CSRankings: Extract Presets & Batch Fast Scrape
+// ─────────────────────────────────────────
+let extractStrategy = 'search'; // 'search' (web search) or 'fast' (homepage only)
+
+const EXTRACT_PRESETS = {
+  anthropic:  { base_url: '',                              model: 'claude-sonnet-4-6',  key: '' },
+  openrouter: { base_url: 'https://openrouter.ai/api/v1', model: 'deepseek/deepseek-v4-pro',  key: '' },
+  lmstudio:   { base_url: 'http://127.0.0.1:1234/v1',    model: 'qwen3.5-9b-deepseek-v4-flash', key: 'lm-studio' },
+  custom:     { base_url: '',                              model: '',                           key: '' },
+};
+
+function setStrategy(mode, btn) {
+  extractStrategy = mode;
+  btn.parentElement.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('strategy-hint').textContent = mode === 'search'
+    ? 'Uses web search API to find lab pages and members. More thorough but slower. Requires Anthropic API or capable model.'
+    : 'Directly fetches the professor homepage and discovers sub-pages. Fast and cheap, but may miss info if homepage is sparse.';
+}
+
+const MODEL_OPTIONS = {
+  anthropic: [
+    { label: 'Claude Sonnet 4.6', id: 'claude-sonnet-4-6' },
+    { label: 'Claude Haiku 4.5', id: 'claude-haiku-4-5' },
+    { label: 'Claude Opus 4.6', id: 'claude-opus-4-6' },
+  ],
+  openrouter: [
+    { group: 'DeepSeek', models: [
+      { label: 'DeepSeek V4 Pro', id: 'deepseek/deepseek-v4-pro' },
+      { label: 'DeepSeek V4 Flash', id: 'deepseek/deepseek-v4-flash' },
+      { label: 'DeepSeek V4 Flash (free)', id: 'deepseek/deepseek-v4-flash:free' },
+      { label: 'DeepSeek R1', id: 'deepseek/deepseek-r1' },
+    ]},
+    { group: 'OpenAI', models: [
+      { label: 'GPT-4o Mini', id: 'openai/gpt-4o-mini' },
+      { label: 'GPT-4o', id: 'openai/gpt-4o' },
+    ]},
+    { group: 'Anthropic', models: [
+      { label: 'Claude Sonnet 4.6', id: 'anthropic/claude-sonnet-4.6' },
+      { label: 'Claude Haiku 4.5', id: 'anthropic/claude-haiku-4.5' },
+      { label: 'Claude Opus 4.6', id: 'anthropic/claude-opus-4.6' },
+    ]},
+    { group: 'Google', models: [
+      { label: 'Gemini 2.5 Flash', id: 'google/gemini-2.5-flash-preview' },
+      { label: 'Gemini 2.5 Pro', id: 'google/gemini-2.5-pro-preview' },
+    ]},
+    { group: 'Perplexity (has web search)', models: [
+      { label: 'Sonar Pro', id: 'perplexity/sonar-pro' },
+      { label: 'Sonar', id: 'perplexity/sonar' },
+    ]},
+    { group: 'Other', models: [
+      { label: 'Qwen3 235B', id: 'qwen/qwen3-235b' },
+      { label: 'Llama 4 Maverick', id: 'meta-llama/llama-4-maverick' },
+    ]},
+  ],
+  lmstudio: [
+    { label: 'Use model loaded in LM Studio', id: 'qwen3.5-9b-deepseek-v4-flash' },
+  ],
+  custom: [],
+};
+
+function renderModelDropdown(provider) {
+  const select = document.getElementById('extract-model-select');
+  const options = MODEL_OPTIONS[provider] || [];
+  let html = '';
+
+  if (!options.length) {
+    html = '<option value="">Type model ID below</option>';
+  } else if (Array.isArray(options) && options[0] && options[0].group) {
+    // Grouped (OpenRouter)
+    for (const g of options) {
+      html += `<optgroup label="${g.group}">`;
+      for (const m of g.models) {
+        html += `<option value="${m.id}">${m.label}</option>`;
+      }
+      html += '</optgroup>';
+    }
+  } else {
+    // Flat list
+    for (const m of options) {
+      html += `<option value="${m.id}">${m.label}</option>`;
+    }
+  }
+
+  select.innerHTML = html;
+  // Sync with text input
+  const cur = document.getElementById('extract-model').value;
+  const allOpts = select.querySelectorAll('option');
+  let matched = false;
+  allOpts.forEach(opt => {
+    if (opt.value === cur) { opt.selected = true; matched = true; }
+  });
+  if (!matched && allOpts.length) {
+    select.value = allOpts[0].value;
+    document.getElementById('extract-model').value = allOpts[0].value;
+  }
+}
+
+function onModelSelect(sel) {
+  if (sel.value) {
+    document.getElementById('extract-model').value = sel.value;
+  }
+}
+
+function setExtractPreset(name, btn) {
+  _extractPresetName = name;
+  btn.parentElement.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const p = EXTRACT_PRESETS[name];
+  if (!p) return;
+  document.getElementById('extract-base-url').value = p.base_url;
+  document.getElementById('extract-model').value = p.model;
+  if (p.key) document.getElementById('extract-api-key').value = p.key;
+  renderModelDropdown(name);
+}
+
+// Get effective LLM config: prefer inline extract fields, fall back to sidebar
+// BUT: if a preset was explicitly selected (e.g. Anthropic with empty base_url),
+// do NOT override base_url from sidebar.
+let _extractPresetName = 'openrouter'; // track which preset is active
+
+function getExtractConfig() {
+  let api_key  = document.getElementById('extract-api-key').value.trim();
+  let model    = document.getElementById('extract-model').value.trim();
+  let base_url = document.getElementById('extract-base-url').value.trim();
+
+  // Only fall back to sidebar if no preset was explicitly chosen
+  // Anthropic preset intentionally has empty base_url — don't override it
+  if (!api_key) api_key = document.getElementById('llm-api-key').value.trim();
+  if (!model)   model   = document.getElementById('llm-model').value.trim();
+  // Only fall back base_url if preset is 'custom' (user hasn't chosen a specific provider)
+  if (!base_url && _extractPresetName === 'custom') {
+    base_url = document.getElementById('llm-base-url').value.trim();
+  }
+
+  // Fix common API key issues
+  if (api_key && base_url.includes('openrouter')) {
+    if (api_key.startsWith('Sk-') || api_key.startsWith('SK-')) {
+      api_key = 'sk-' + api_key.slice(3);
+    }
+  }
+  return { api_key, model, base_url };
+}
+
+async function startBatchFastScrape() {
+  const selected = getSelectedFaculty();
+  if (!selected.length) return;
+
+  const { api_key, model, base_url } = getExtractConfig();
+  if (!api_key) { alert('Please enter an API key (in the extract panel or sidebar LLM Config).'); return; }
+
+  const btn = document.getElementById('btn-extract');
+  btn.disabled = true;
+  btn.textContent = 'Extracting...';
+  showProgressCard();
+  resetResults();
+
+  const professors = selected.map(p => ({ name: p.name, homepage: p.homepage || '' }));
+
+  try {
+    const res = await fetch('/api/lab-sourcer/batch-fast-scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ professors, api_key, model, base_url, strategy: extractStrategy })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw || raw === '[DONE]') continue;
+
+        let evt;
+        try { evt = JSON.parse(raw); } catch { continue; }
+
+        if (evt.type === 'progress') {
+          const pct = evt.total > 0 ? Math.round((evt.current / evt.total) * 100) : 0;
+          setProgress(pct, evt.message || `${evt.current} / ${evt.total}`);
+          if (evt.message) logEntry(evt.message);
+        } else if (evt.type === 'members') {
+          (evt.data || []).forEach(m => appendMember(m));
+        } else if (evt.type === 'log') {
+          logEntry(evt.message, evt.level === 'error' ? 'log-error' : evt.level === 'warn' ? 'log-warn' : '');
+        } else if (evt.type === 'done') {
+          setProgress(100, evt.message || 'Complete');
+          if (evt.message) logEntry(evt.message);
+        } else if (evt.type === 'error') {
+          logEntry(`Error: ${evt.message}`, 'log-error');
+        }
+      }
+    }
+  } catch(e) {
+    logEntry(`Batch scrape failed: ${e.message}`, 'log-error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Extract Lab Members';
+  }
+}
+
+// ─────────────────────────────────────────
+// Smart Search: Single-professor fast scrape
+// ─────────────────────────────────────────
+async function startSmartScrape() {
+  const homepage = document.getElementById('smart-homepage').value.trim();
+  if (!homepage) { alert('Please enter a homepage URL.'); return; }
+  const professor_name = document.getElementById('smart-prof-name').value.trim();
+  const cfg = getLLMConfig(); // uses sidebar LLM config
+
+  if (!cfg.api_key) { alert('Please set an API key in the sidebar LLM Config.'); return; }
+
+  const btn = document.getElementById('btn-smart-search');
+  btn.disabled = true;
+  btn.textContent = 'Extracting...';
+  showProgressCard();
+  resetResults();
+
+  try {
+    const res = await fetch('/api/lab-sourcer/fast-scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ homepage, professor_name, api_key: cfg.api_key, model: cfg.model, base_url: cfg.base_url })
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      let errMsg = `HTTP ${res.status}`;
+      try { errMsg = JSON.parse(errText).error || errMsg; } catch {}
+      throw new Error(errMsg);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let stepCount = 0;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+        let evt;
+        try { evt = JSON.parse(raw); } catch { continue; }
+
+        if (evt.type === 'status') {
+          stepCount++;
+          setProgress(Math.min(stepCount * 12, 95), evt.message);
+          logEntry(evt.message);
+        } else if (evt.type === 'result') {
+          const members = evt.members || [];
+          members.forEach(m => {
+            if (!m.source) m.source = professor_name || homepage;
+            appendMember(m);
+          });
+          setProgress(100, `Found ${members.length} members`);
+          logEntry(`Done: ${members.length} members extracted`);
+        } else if (evt.type === 'error') {
+          logEntry(`Error: ${evt.message}`, 'log-error');
+        }
+      }
+    }
+  } catch(e) {
+    logEntry(`Smart scrape failed: ${e.message}`, 'log-error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Extract Lab Members';
+  }
+}
+
+// ─────────────────────────────────────────
+// SSE Stream Helper
+// ─────────────────────────────────────────
+async function streamFetch(endpoint, body) {
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let total = 0, done_count = 0;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw || raw === '[DONE]') continue;
+
+        let evt;
+        try { evt = JSON.parse(raw); } catch { continue; }
+
+        if (evt.type === 'progress') {
+          if (evt.total)   total = evt.total;
+          if (evt.current) done_count = evt.current;
+          const pct = total > 0 ? Math.round((done_count / total) * 100) : 0;
+          setProgress(pct, evt.message || `${done_count} / ${total}`);
+          if (evt.message) logEntry(evt.message);
+        } else if (evt.type === 'member') {
+          appendMember(evt.data);
+        } else if (evt.type === 'members') {
+          (evt.data || []).forEach(m => appendMember(m));
+        } else if (evt.type === 'log') {
+          logEntry(evt.message, evt.level === 'error' ? 'log-error' : evt.level === 'warn' ? 'log-warn' : '');
+        } else if (evt.type === 'done') {
+          setProgress(100, evt.message || 'Complete');
+          if (evt.message) logEntry(evt.message);
+        } else if (evt.type === 'error') {
+          logEntry(`Error: ${evt.message}`, 'log-error');
+        }
+      }
+    }
+  } catch(e) {
+    logEntry(`Stream error: ${e.message}`, 'log-error');
+  }
+}
+
+// ─────────────────────────────────────────
+// Progress & Log
+// ─────────────────────────────────────────
+function showProgressCard() {
+  document.getElementById('progress-card').style.display = 'block';
+  document.getElementById('status-log').classList.add('visible');
+  document.getElementById('status-log').innerHTML = '';
+  setProgress(0, 'Starting...');
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function logEntry(msg, cls) {
+  const log = document.getElementById('status-log');
+  const line = document.createElement('div');
+  line.className = 'log-entry' + (cls ? ' ' + cls : '');
+  line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function showLog(level, msg) {
+  showProgressCard();
+  logEntry(msg, level === 'error' ? 'log-error' : '');
+}
+
+// ─────────────────────────────────────────
+// Results
+// ─────────────────────────────────────────
+function resetResults() {
+  discoveredMembers = [];
+  document.getElementById('results-card').style.display = 'none';
+  document.getElementById('results-tbody').innerHTML = '';
+  document.getElementById('results-count').textContent = '';
+  const sumEl = document.getElementById('import-summary');
+  sumEl.classList.remove('visible');
+  sumEl.innerHTML = '';
+}
+
+function appendMember(m) {
+  discoveredMembers.push(m);
+  renderResults(discoveredMembers);
+}
+
+const ROLE_OPTIONS = ['Professor','Postdoc','PhD Student','Master Student','Research Scientist','Visiting Scholar','Undergraduate','Research Engineer','Other'];
+
+function renderResults(members) {
+  const card  = document.getElementById('results-card');
+  const tbody = document.getElementById('results-tbody');
+  const count = document.getElementById('results-count');
+
+  count.innerHTML = `<strong>${members.length}</strong> member${members.length !== 1 ? 's' : ''} discovered`;
+
+  tbody.innerHTML = members.map((m, idx) => {
+    const roleOpts = ROLE_OPTIONS.map(r =>
+      `<option value="${escAttr(r)}"${(m.role||'') === r ? ' selected' : ''}>${escHtml(r)}</option>`
+    ).join('');
+    const sourceCell = m.source
+      ? `<span class="badge-source">${escHtml(m.source)}</span>`
+      : '—';
+    const pageCell = m.personal_page
+      ? `<a href="${escAttr(m.personal_page)}" target="_blank" rel="noopener">${escHtml(trimUrl(m.personal_page))}</a>`
+      : '';
+
+    return `<tr data-idx="${idx}">
+      <td contenteditable="true" class="editable" data-field="name" style="font-weight:500;color:var(--text-primary);white-space:nowrap;">${escHtml(m.name || '')}</td>
+      <td><select class="role-select" data-field="role" onchange="editCell(${idx},'role',this.value)">${roleOpts}</select></td>
+      <td>${sourceCell}</td>
+      <td contenteditable="true" class="editable" data-field="research_area">${escHtml(m.research_area || '')}</td>
+      <td contenteditable="true" class="editable" data-field="expected_graduation" style="white-space:nowrap;">${m.expected_graduation || ''}</td>
+      <td contenteditable="true" class="editable" data-field="email" style="white-space:nowrap;">${escHtml(m.email || '')}</td>
+      <td>${pageCell}</td>
+      <td><button class="btn-delete-row" title="Remove" onclick="deleteRow(${idx})">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  // Bind blur events for contenteditable cells
+  tbody.querySelectorAll('td[contenteditable]').forEach(td => {
+    td.addEventListener('blur', function() {
+      const idx = parseInt(this.closest('tr').dataset.idx);
+      const field = this.dataset.field;
+      let val = this.textContent.trim();
+      if (field === 'expected_graduation') val = val ? parseInt(val) || null : null;
+      editCell(idx, field, val);
+    });
+    td.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+    });
+  });
+
+  card.style.display = 'block';
+}
+
+function editCell(idx, field, value) {
+  if (idx >= 0 && idx < discoveredMembers.length) {
+    discoveredMembers[idx][field] = value;
+  }
+}
+
+function deleteRow(idx) {
+  discoveredMembers.splice(idx, 1);
+  renderResults(discoveredMembers);
+}
+
+// ─────────────────────────────────────────
+// Import to Talent Pool
+// ─────────────────────────────────────────
+async function importToTalentPool() {
+  if (!discoveredMembers.length) return;
+  const btn = document.getElementById('btn-import');
+  btn.disabled = true;
+  btn.textContent = 'Importing...';
+
+  const sumEl = document.getElementById('import-summary');
+  sumEl.classList.remove('visible');
+
+  try {
+    const res = await fetch('/api/lab-sourcer/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ members: discoveredMembers, institution: (document.getElementById('inst-input')?.value || '').trim() })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+
+    const imported = data.imported ?? 0;
+    const skipped  = data.skipped  ?? 0;
+    const failed   = data.failed   ?? 0;
+
+    sumEl.innerHTML = `
+      <div style="margin-bottom:6px;font-weight:600;font-size:0.84rem;">Import complete</div>
+      <span class="import-stat">Imported <span>${imported}</span></span>
+      <span class="import-stat">Skipped (duplicate) <span>${skipped}</span></span>
+      <span class="import-stat">Failed <span>${failed}</span></span>
+      <br><br>
+      <a href="/people" class="import-link">View in Talent Pool &rarr;</a>
+    `;
+    sumEl.classList.add('visible');
+    logEntry(`Import complete: ${imported} imported, ${skipped} skipped, ${failed} failed`);
+  } catch(e) {
+    sumEl.innerHTML = `<span style="color:#c07070;">Import failed: ${escHtml(e.message)}</span>`;
+    sumEl.classList.add('visible');
+    logEntry(`Import error: ${e.message}`, 'log-error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Import to Talent Pool';
+  }
+}
+
+// ─────────────────────────────────────────
+// Enrich from Personal Pages
+// ─────────────────────────────────────────
+async function enrichFromPages() {
+  const withPages = discoveredMembers.filter(m => m.personal_page);
+  if (!withPages.length) {
+    alert('No members have personal pages to enrich.');
+    return;
+  }
+
+  const { api_key, model, base_url } = getExtractConfig();
+  if (!api_key) { alert('Please enter an API key.'); return; }
+
+  const btn = document.getElementById('btn-enrich');
+  btn.disabled = true;
+  btn.textContent = `Enriching ${withPages.length} members...`;
+
+  try {
+    const res = await fetch('/api/lab-sourcer/enrich-pages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ members: discoveredMembers, api_key, model, base_url })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+        let evt;
+        try { evt = JSON.parse(raw); } catch { continue; }
+
+        if (evt.type === 'status') {
+          btn.textContent = evt.message;
+        } else if (evt.type === 'result') {
+          discoveredMembers = evt.members || discoveredMembers;
+          renderResults(discoveredMembers);
+        }
+      }
+    }
+  } catch(e) {
+    alert('Enrich failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enrich from Personal Pages';
+  }
+}
+
+// ─────────────────────────────────────────
+// Export / Copy
+// ─────────────────────────────────────────
+function exportCSV() {
+  if (!discoveredMembers.length) return;
+  const rows = [['Name', 'Role', 'Source', 'Research Area', 'Email', 'Personal Page']];
+  discoveredMembers.forEach(m => rows.push([
+    m.name || '', m.role || '', m.source || '',
+    m.research_area || '', m.email || '', m.personal_page || ''
+  ]));
+  downloadCSV(rows, 'lab_members.csv');
+}
+
+function copyResults() {
+  if (!discoveredMembers.length) return;
+  const lines = discoveredMembers.map(m =>
+    [m.name, m.role, m.source, m.research_area, m.email, m.personal_page]
+      .filter(Boolean).join(' | ')
+  );
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => btn.textContent = orig, 1800);
+  });
+}
+
+// ─────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(str) {
+  return String(str || '').replace(/"/g,'&quot;');
+}
+function trimUrl(url) {
+  return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 42) + (url.length > 42 ? '...' : '');
+}
+
+// ─────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────
+loadInstitutions();
+renderModelDropdown('openrouter');
+</script>
+
+</body>
+</html>
