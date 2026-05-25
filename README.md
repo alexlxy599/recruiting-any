@@ -21,7 +21,7 @@ Discover  →  Pool  →  Outreach
 - Handles JS-rendered pages, cross-domain lab sites, icon-only links, 100K+ char pages
 
 **Pool** — Manage candidates in one place
-- 2,800+ candidates with full-text search (FTS5), boolean queries, semantic matching
+- candidates with full-text search (FTS5), boolean queries, semantic matching
 - **All / Academic / Industry** tabs — one pool, filtered views
 - Academic view: filter by advisor, institution, graduation year, research area, pipeline status
 - Insights dashboard: company distribution, degree breakdown, top schools, outreach funnel
