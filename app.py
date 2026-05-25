@@ -355,64 +355,189 @@ def build_system_prompt(config: dict) -> str:
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 
-def search_github(name: str, community: str, github_login: str = "") -> str:
-    """Search GitHub for a user, return profile + top repos summary."""
-    headers = {"Accept": "application/vnd.github+json"}
+def _gh_headers():
+    h = {"Accept": "application/vnd.github+json"}
     if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+        h["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    return h
 
-    info_parts = []
 
+def _gh_get(url, params=None, timeout=10):
+    return _req.get(url, params=params, headers=_gh_headers(), timeout=timeout)
+
+
+def search_github(name: str, community: str, github_login: str = "") -> str:
+    """Search GitHub for a user with signal-based repo ranking.
+
+    Returns structured context with confidence level:
+    - HIGH: core active projects with commit details
+    - MEDIUM: some activity but limited
+    - LOW: mostly forks/stale repos — only mention tech direction, no project names
+    """
     try:
         if github_login:
-            # Direct lookup by username
             login = github_login
         else:
-            # Search users by name
             q = f"{name} {community}" if community else name
-            resp = _req.get("https://api.github.com/search/users",
-                            params={"q": q, "per_page": 1}, headers=headers, timeout=10)
+            resp = _gh_get("https://api.github.com/search/users",
+                           params={"q": q, "per_page": 1})
             if resp.status_code != 200 or not resp.json().get("items"):
                 return ""
             login = resp.json()["items"][0]["login"]
 
-        # Get user profile
-        profile = _req.get(f"https://api.github.com/users/{login}",
-                           headers=headers, timeout=10).json()
-
+        # 1. User profile
+        profile = _gh_get(f"https://api.github.com/users/{login}").json()
         bio = profile.get("bio") or ""
         company = profile.get("company") or ""
-        location = profile.get("location") or ""
         followers = profile.get("followers", 0)
-        public_repos = profile.get("public_repos", 0)
 
-        info_parts.append(f"GitHub: {login} | Followers: {followers} | Repos: {public_repos}")
+        # 2. Recent events (last 90 days) — best signal for real activity
+        events_resp = _gh_get(f"https://api.github.com/users/{login}/events",
+                              params={"per_page": 100})
+        active_repos = {}  # repo_full_name -> {pushes, prs, last_active}
+        if events_resp.status_code == 200:
+            for ev in events_resp.json():
+                repo_name = ev.get("repo", {}).get("name", "")
+                if not repo_name:
+                    continue
+                ev_type = ev.get("type", "")
+                created = ev.get("created_at", "")[:10]
+                if repo_name not in active_repos:
+                    active_repos[repo_name] = {"pushes": 0, "prs": 0, "last_active": created}
+                if ev_type == "PushEvent":
+                    commits_count = len(ev.get("payload", {}).get("commits", []))
+                    active_repos[repo_name]["pushes"] += max(commits_count, 1)  # At least 1 per push event
+                elif ev_type in ("PullRequestEvent",):
+                    active_repos[repo_name]["prs"] += 1
+                if created > active_repos[repo_name]["last_active"]:
+                    active_repos[repo_name]["last_active"] = created
+
+        # 3. Repos sorted by last push — filter to recent 2 years
+        from datetime import datetime, timedelta
+        cutoff = (datetime.now() - timedelta(days=730)).isoformat()[:10]
+
+        repos_resp = _gh_get(f"https://api.github.com/users/{login}/repos",
+                             params={"sort": "pushed", "direction": "desc", "per_page": 30})
+        repos_data = repos_resp.json() if repos_resp.status_code == 200 else []
+
+        # Classify repos into tiers
+        core_projects = []      # S: own repo + recent commits
+        contributions = []      # A: active in others' repos (from events)
+        historical = []         # C: own repo but stale
+        languages = set()
+
+        for r in repos_data:
+            repo_name = r.get("full_name", "")
+            is_fork = r.get("fork", False)
+            pushed_at = (r.get("pushed_at") or "")[:10]
+            stars = r.get("stargazers_count", 0)
+            lang = r.get("language") or ""
+            desc = (r.get("description") or "")[:100]
+
+            if lang:
+                languages.add(lang)
+
+            # Skip forks with no activity from this user
+            if is_fork:
+                event_data = active_repos.get(repo_name, {})
+                if event_data.get("pushes", 0) == 0 and event_data.get("prs", 0) == 0:
+                    continue  # D tier: fork with zero commits — ignore
+
+            event_data = active_repos.get(repo_name, {})
+            recent_commits = event_data.get("pushes", 0)
+
+            entry = {
+                "name": r.get("name", ""),
+                "full_name": repo_name,
+                "lang": lang,
+                "stars": stars,
+                "desc": desc,
+                "pushed_at": pushed_at,
+                "recent_commits": recent_commits,
+                "is_fork": is_fork,
+            }
+
+            if not is_fork and pushed_at >= cutoff:
+                if recent_commits > 0:
+                    core_projects.append(entry)  # S tier
+                else:
+                    core_projects.append(entry)  # Own + recent push but no events (events only cover 90 days)
+            elif not is_fork:
+                historical.append(entry)  # C tier
+            elif is_fork and recent_commits > 0:
+                contributions.append(entry)  # B tier (active fork)
+
+        # Check events for contributions to repos NOT in their own repo list (A tier)
+        own_repos = {r.get("full_name", "") for r in repos_data}
+        for repo_name, data in active_repos.items():
+            if repo_name not in own_repos and data["pushes"] + data["prs"] > 0:
+                contributions.append({
+                    "name": repo_name.split("/")[-1],
+                    "full_name": repo_name,
+                    "recent_commits": data["pushes"],
+                    "prs": data["prs"],
+                    "last_active": data["last_active"],
+                })
+
+        # Sort by activity
+        core_projects.sort(key=lambda x: (x.get("recent_commits", 0), x.get("stars", 0)), reverse=True)
+        contributions.sort(key=lambda x: x.get("recent_commits", 0) + x.get("prs", 0), reverse=True)
+
+        # Determine confidence level based on real activity signals
+        total_recent_commits = sum(p.get("recent_commits", 0) for p in core_projects[:5])
+        total_contributions = sum(c.get("recent_commits", 0) + c.get("prs", 0) for c in contributions[:5])
+        has_starred_projects = any(p.get("stars", 0) >= 10 for p in core_projects)
+
+        if (total_recent_commits >= 10 and len(core_projects) >= 2) or \
+           (total_recent_commits >= 5 and has_starred_projects):
+            confidence = "HIGH"
+        elif total_recent_commits >= 3 or total_contributions >= 2 or \
+             (core_projects and has_starred_projects):
+            confidence = "MEDIUM"
+        elif core_projects or contributions or historical:
+            confidence = "LOW"
+        else:
+            confidence = "NONE"
+
+        # Build structured output for LLM
+        parts = []
+        parts.append(f"GitHub: {login} | Followers: {followers}")
         if bio:
-            info_parts.append(f"Bio: {bio}")
+            parts.append(f"Bio: {bio}")
         if company:
-            info_parts.append(f"Company: {company}")
-        if location:
-            info_parts.append(f"Location: {location}")
+            parts.append(f"Company: {company}")
+        parts.append(f"Signal confidence: {confidence}")
 
-        # Get top repos by stars
-        repos_resp = _req.get(f"https://api.github.com/users/{login}/repos",
-                              params={"sort": "stars", "per_page": 5},
-                              headers=headers, timeout=10)
-        if repos_resp.status_code == 200:
-            repos = repos_resp.json()
-            top_repos = []
-            for r in repos:
-                stars = r.get("stargazers_count", 0)
-                desc = r.get("description") or ""
-                lang = r.get("language") or ""
-                top_repos.append(f"  - {r['name']} ({lang}, {stars} stars): {desc[:80]}")
-            if top_repos:
-                info_parts.append("Top repos:\n" + "\n".join(top_repos))
+        if confidence == "HIGH":
+            parts.append("\n=== Core Active Projects (mention these specifically) ===")
+            for p in core_projects[:4]:
+                commits_info = f", {p['recent_commits']} recent commits" if p.get("recent_commits") else ""
+                parts.append(f"  - {p['name']} ({p.get('lang', '')}, {p.get('stars', 0)} stars{commits_info}): {p.get('desc', '')}")
+            if contributions[:2]:
+                parts.append("\n=== Community Contributions (shows collaboration) ===")
+                for c in contributions[:2]:
+                    parts.append(f"  - {c['full_name']} ({c.get('recent_commits', 0)} commits, {c.get('prs', 0)} PRs)")
+
+        elif confidence == "MEDIUM":
+            parts.append("\n=== Active Projects (can mention by name but don't go deep) ===")
+            for p in (core_projects + contributions)[:3]:
+                parts.append(f"  - {p.get('name', '')} ({p.get('lang', '')}): {p.get('desc', '')}")
+
+        elif confidence == "LOW":
+            # Only provide tech direction, no project names
+            if languages:
+                parts.append(f"\nTech direction (DO NOT mention specific project names): {', '.join(sorted(languages))}")
+            if historical[:1]:
+                parts.append(f"Has some background in: {historical[0].get('desc', '') or historical[0].get('lang', '')}")
+            parts.append("NOTE: Low signal — write a general message about their tech direction, do NOT name any repos.")
+
+        else:
+            parts.append("NOTE: No meaningful GitHub activity found. Do NOT reference GitHub in the message.")
+
+        return "\n".join(parts)
 
     except Exception:
-        pass
-
-    return "\n".join(info_parts)
+        return ""
 
 
 def search_person(name: str, url: str, community: str, github_login: str = "") -> str:
@@ -560,6 +685,11 @@ LinkedIn：{url}
 背景信息：
 {context if context else f"（未找到详细信息，根据 {community} 社区贡献者身份撰写）"}
 
+关于 GitHub 信息的使用规则：
+- 如果标注 "Signal confidence: HIGH"：大胆提及具体项目名和技术细节
+- 如果标注 "Signal confidence: MEDIUM"：可以提项目名，但不要深入技术细节
+- 如果标注 "Signal confidence: LOW"：只提技术方向（如"分布式系统"），不要提任何项目名
+- 如果标注 "Signal confidence: NONE" 或无 GitHub 信息：完全不提 GitHub
 注意：请用中文撰写消息。"""
     else:
         user_prompt = f"""Generate a personalized LinkedIn recruiting message for:
@@ -567,7 +697,13 @@ LinkedIn：{url}
 Name: {name}
 LinkedIn: {url}
 Background:
-{context if context else f"(No details found, write based on their role as a {community} community contributor)"}"""
+{context if context else f"(No details found, write based on their role as a {community} community contributor)"}
+
+Rules for using GitHub information:
+- If "Signal confidence: HIGH": Boldly reference specific project names and technical details
+- If "Signal confidence: MEDIUM": Mention project names but keep it brief, no deep technical details
+- If "Signal confidence: LOW": Only mention tech direction (e.g. "distributed systems"), do NOT name any repos
+- If "Signal confidence: NONE" or no GitHub info: Do NOT reference GitHub at all"""
 
     try:
         if provider == "anthropic":
