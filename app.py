@@ -12,13 +12,19 @@ from duckduckgo_search import DDGS
 from db import (init_db, get_sender_config, save_sender_config, add_history, get_history, delete_history, clear_history,
                 search_people, search_people_boolean, search_people_fts, get_person, count_people, upsert_person,
                 add_experiences, add_educations, get_conn, rebuild_fts, update_fts_for_person,
-                search_academic, get_academic_filters)
+                search_academic, get_academic_filters,
+                add_person_tag, get_person_tags, get_all_tags, search_by_tag, remove_person_tag)
 from ai.embedder import semantic_search
 from csrankings import get_institutions, get_ai_faculty, get_all_faculty, AREA_LABELS
 from scraper import scrape_lab, scrape_department_page
 from agent_scraper import run_agent_search
 from fast_scraper import fast_scrape_lab
 from enrich_academic import enrich_from_personal_pages
+from conference_scraper import (
+    fetch_papers_openreview, fetch_author_profile, map_to_member, CONFERENCE_VENUES,
+    parse_paperdigest_json, parse_paperdigest_csv, filter_chinese_authors,
+    enrich_papers_arxiv, build_results, classify_author,
+)
 
 app = Flask(__name__)
 
@@ -766,7 +772,170 @@ def person_page(person_id):
     person = get_person(person_id)
     if not person:
         return "Not found", 404
-    return render_template("person.html", person=person)
+
+    # GitHub 画像：从快照层组装（profile JSON + README + 个人主页摘要）
+    github = None
+    from db import get_snapshots
+    snaps = get_snapshots(person_id)
+    profile_snap = next((s for s in snaps if s["source"] == "github_profile"), None)
+    if profile_snap:
+        try:
+            gh_profile = json.loads(profile_snap["raw_text"])
+        except (json.JSONDecodeError, TypeError):
+            gh_profile = {}
+        repos = []
+        repos_snap = next((s for s in snaps if s["source"] == "github_repos"), None)
+        if repos_snap:
+            try:
+                repos = json.loads(repos_snap["raw_text"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+        languages = sorted({r["language"] for r in repos if r.get("language")})
+        github = {
+            "verified": person.get("github_verified"),
+            "profile": gh_profile,
+            "summary": person.get("github_summary"),
+            "repos": repos[:5],
+            "languages": languages[:8],
+            "homepage_url": next((s["url"] for s in snaps if s["source"] == "homepage"), ""),
+            "fetched_at": (profile_snap["fetched_at"] or "")[:10],
+        }
+    # 个人主页画像：最新一版提取 JSON
+    homepage_profile = None
+    conn = get_conn()
+    ext_row = conn.execute(
+        "SELECT json FROM extractions WHERE person_id=? AND source='homepage' "
+        "ORDER BY version DESC, created_at DESC LIMIT 1", (person_id,)).fetchone()
+    collabs = [dict(r) for r in conn.execute(
+        "SELECT collaborator_name, collaborator_person_id, relation, context "
+        "FROM collaborations WHERE person_id=? ORDER BY "
+        "CASE relation WHEN 'advisor' THEN 0 WHEN 'mentor' THEN 1 WHEN 'labmate' THEN 2 ELSE 3 END",
+        (person_id,)).fetchall()]
+    conn.close()
+    if ext_row:
+        try:
+            homepage_profile = json.loads(ext_row["json"])
+            homepage_profile["collabs"] = collabs[:20]
+            # News 原文 → 结构化时间线 [(yyyy-mm, 正文)]，按时间倒序
+            import re as _re
+            months = {m: i + 1 for i, m in enumerate(
+                ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"])}
+            timeline = []
+            for item in (homepage_profile.get("signals") or {}).get("news", [])[:15]:
+                m = _re.match(r"^\s*([A-Za-z]{3,9})\.?,?\s*(?:(\d{1,2}),?\s*)?(\d{4})\s*[:\-–]\s*(.+)$",
+                              item.strip())
+                if m:
+                    mon = months.get(m.group(1)[:3].lower())
+                    key = f"{m.group(3)}-{mon:02d}" if mon else m.group(3)
+                    timeline.append({"date": key, "text": m.group(4).strip()})
+                else:
+                    m2 = _re.match(r"^\s*(\d{4})[./-](\d{1,2})\s*[:\-–]?\s*(.+)$", item.strip())
+                    if m2:
+                        timeline.append({"date": f"{m2.group(1)}-{int(m2.group(2)):02d}",
+                                         "text": m2.group(3).strip()})
+                    else:
+                        timeline.append({"date": "", "text": item.strip()})
+            timeline.sort(key=lambda x: x["date"], reverse=True)
+            homepage_profile["timeline"] = timeline
+        except (json.JSONDecodeError, TypeError):
+            pass
+    wordcloud = _build_wordcloud(person, homepage_profile)
+    has_discovery = os.path.exists(os.path.join(
+        os.path.dirname(__file__), "data", "discoveries", f"{person_id}.json"))
+    return render_template("person.html", person=person, github=github,
+                           homepage_profile=homepage_profile, wordcloud=wordcloud,
+                           has_discovery=has_discovery)
+
+
+# 泛词黑名单：太宽泛、无区分度的方向词不进词云
+_WC_GENERIC = {
+    "ai", "a.i.", "artificial intelligence", "machine learning", "ml", "deep learning", "dl",
+    "computer science", "cs", "data science", "research", "science", "technology", "engineering",
+    "algorithm", "algorithms", "neural network", "neural networks", "model", "models", "modeling",
+    "learning", "system", "systems", "method", "methods", "approach", "computing", "computation",
+    "mathematics", "math", "statistics", "optimization", "data", "analysis", "application", "applications",
+    "intelligence", "informatics", "information", "general", "various", "etc",
+}
+
+
+def _build_wordcloud(person, hp):
+    """研究方向词云：具体方向词，过滤泛词，按陈述+语料频次定权重。"""
+    import re as _re
+    terms = {}
+
+    def add(t, base):
+        if not isinstance(t, str):
+            return
+        t = _re.sub(r"\s+", " ", t).strip().strip(".,;")
+        low = t.lower()
+        if not t or low in _WC_GENERIC or len(t) < 2 or len(t) > 42 or t.isdigit():
+            return
+        terms.setdefault(low, {"text": t, "weight": 0})
+        terms[low]["weight"] += base
+
+    for d in (hp or {}).get("research_directions") or []:
+        add(d, 3)
+    for tag in person.get("tags", []):
+        if tag.get("category") in ("domain", "skill"):
+            add(tag.get("name"), 2)
+
+    # 语料：摘要 + 自述 + 论文标题 + 项目，统计方向词出现频次作为额外权重
+    corpus_parts = [(hp or {}).get("summary_zh") or "", (hp or {}).get("self_description") or ""]
+    corpus_parts += [p.get("title", "") for p in person.get("publications", [])]
+    for pr in (hp or {}).get("projects") or []:
+        if isinstance(pr, dict):
+            corpus_parts += [pr.get("name") or "", pr.get("description") or ""]
+    corpus = " ".join(corpus_parts).lower()
+    for low, obj in terms.items():
+        obj["weight"] += min(corpus.count(low), 5)
+
+    return sorted(terms.values(), key=lambda x: -x["weight"])[:28]
+
+
+@app.route("/pool/github-review")
+def github_review_page():
+    import re as _re
+    from db import get_github_verified_people
+
+    # 判定依据存在验证报告里（reason 是衍生分析，不进 people 表）
+    reasons = {}
+    report_path = os.path.join(os.path.dirname(__file__), "data", "github_verify_report.json")
+    if os.path.exists(report_path):
+        for r in json.load(open(report_path, encoding="utf-8")):
+            reasons[r["id"]] = r.get("reason", "")
+
+    people = get_github_verified_people()
+    for p in people:
+        m = _re.search(r"github\.com/([^/?#]+)", p.get("github_url") or "", _re.I)
+        p["login"] = m.group(1) if m else ""
+        m = _re.search(r"linkedin\.com/in/([^/?#]+)", p.get("linkedin_url") or "", _re.I)
+        p["linkedin_slug"] = m.group(1) if m else ""
+        p["verified"] = p["github_verified"]
+        p["reason"] = reasons.get(p["id"], "")
+
+    def pick(*levels):
+        return [p for p in people if p["verified"] in levels]
+
+    groups = [
+        {"title": "铁证确认", "desc": "邮箱匹配或 GitHub/个人主页挂了本人 LinkedIn，理论上不会错",
+         "people": pick("verified_email", "verified_link")},
+        {"title": "LLM 确认", "desc": "本地模型比对库内经历与 GitHub 证据后确认，建议抽查",
+         "people": pick("llm_confirmed")},
+        {"title": "待复核", "desc": "空壳账号或证据不足，需要人工判断",
+         "people": pick("uncertain")},
+        {"title": "已排除 / 死链", "desc": "确认错误归属，或 GitHub 账号已不存在",
+         "people": pick("rejected", "not_found")},
+    ]
+    counts = {
+        "verified": len(groups[0]["people"]),
+        "llm_confirmed": len(groups[1]["people"]),
+        "uncertain": len(groups[2]["people"]),
+        "rejected": len(pick("rejected")),
+        "not_found": len(pick("not_found")),
+    }
+    return render_template("github_review.html",
+                           groups=[g for g in groups if g["people"]],
+                           counts=counts, total=len(people))
 
 
 # Legacy redirects
@@ -782,15 +951,19 @@ def discover_page():
 
 @app.route("/api/people", methods=["GET"])
 def api_search_people():
+    from db import list_people, get_badge_fields
+
     query = request.args.get("q", "").strip()
+    lens = request.args.get("lens", "").strip()
     page = int(request.args.get("page", 1))
     per_page = int(request.args.get("per_page", 30))
     offset = (page - 1) * per_page
 
-    if not query:
-        results = search_people(limit=per_page, offset=offset)
-        total = count_people()
-        return jsonify({"data": results, "total": total, "page": page, "per_page": per_page, "mode": "all"})
+    # 视角（lens）是同一池子上的筛选窗口；带 lens 时统一走 list_people（LIKE 检索）
+    if lens or not query:
+        results, total = list_people(lens=lens, query=query, limit=per_page, offset=offset)
+        return jsonify({"data": results, "total": total, "page": page, "per_page": per_page,
+                        "mode": lens or "all"})
 
     # 自动判断搜索模式
     import re
@@ -821,7 +994,138 @@ def api_search_people():
         results, total = search_people_fts(query, limit=per_page, offset=offset)
         mode = "fts"
 
+    # 搜索结果补徽章字段（sector / github_verified / venues）
+    badges = get_badge_fields([r["id"] for r in results])
+    for r in results:
+        r.update(badges.get(r["id"], {}))
+
     return jsonify({"data": results, "total": total, "page": page, "per_page": per_page, "mode": mode})
+
+
+@app.route("/demo")
+def demo_page():
+    """精品 Demo 人才池：丰富度 Top 100，演示用。"""
+    from db import canon_venues
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT p.id, p.first_name, p.last_name, COALESCE(p.institution, p.company, '') AS aff,
+                  p.advisor, p.lab, p.sector, p.github_summary
+           FROM people p JOIN person_tags pt ON pt.person_id = p.id
+           JOIN tags t ON t.id = pt.tag_id WHERE t.name = '__demo__'""").fetchall()
+    people = []
+    for r in rows:
+        d = dict(r)
+        d["dirs"] = [x["name"] for x in conn.execute(
+            """SELECT t.name FROM person_tags pt JOIN tags t ON t.id=pt.tag_id
+               WHERE pt.person_id=? AND t.category IN ('domain','skill')
+               ORDER BY length(t.name) LIMIT 4""", (r["id"],)).fetchall()]
+        vraw = conn.execute(
+            "SELECT GROUP_CONCAT(venue,'|') FROM publications WHERE person_id=?", (r["id"],)).fetchone()[0]
+        d["venues"] = canon_venues(vraw, 3).split(",") if vraw else []
+        d["venues"] = [v for v in d["venues"] if v]
+        d["conns"] = conn.execute(
+            "SELECT COUNT(*) FROM collaborations WHERE person_id=? AND collaborator_person_id IS NOT NULL",
+            (r["id"],)).fetchone()[0]
+        ext = conn.execute(
+            "SELECT json FROM extractions WHERE person_id=? AND source='homepage' ORDER BY version DESC LIMIT 1",
+            (r["id"],)).fetchone()
+        summ = ""
+        if ext:
+            try:
+                summ = json.loads(ext["json"]).get("summary_zh") or ""
+            except (json.JSONDecodeError, TypeError):
+                pass
+        d["summary"] = summ or (r["github_summary"] or "")
+        people.append(d)
+    conn.close()
+    # 按方向多样性 + 连线数排序展示
+    people.sort(key=lambda x: -(len(x["dirs"]) + x["conns"] * 0.1))
+    n_inst = len({p["aff"] for p in people if p["aff"]})
+    total_conns = sum(p["conns"] for p in people)
+    return render_template("demo.html", people=people, n_inst=n_inst, total_conns=total_conns)
+
+
+@app.route("/discover/<int:person_id>")
+def person_discover_page(person_id):
+    """引用扩张发现结果（读缓存）。"""
+    path = os.path.join(os.path.dirname(__file__), "data", "discoveries", f"{person_id}.json")
+    if not os.path.exists(path):
+        return f"该候选人暂无发现结果。先运行: python3.12 discover_s2.py {person_id}", 404
+    data = json.load(open(path, encoding="utf-8"))
+    return render_template("discover.html", d=data)
+
+
+@app.route("/api/people/<int:person_id>/graph", methods=["GET"])
+def api_person_graph(person_id):
+    """关系网络图数据：中心=本人，周围=合作者，含合作者之间的二度连线。"""
+    person = get_person(person_id)
+    if not person:
+        return jsonify({"error": "not found"}), 404
+
+    REL_PRIORITY = {"advisor": 0, "co-advisor": 0, "supervisor": 0, "mentor": 1,
+                    "labmate": 2, "student": 3, "colleague": 4, "coauthor": 5, "mentioned": 6}
+    REL_LABEL = {"advisor": "导师", "co-advisor": "co-advisor", "supervisor": "导师",
+                 "mentor": "mentor", "labmate": "同实验室", "student": "学生",
+                 "colleague": "同事", "coauthor": "共著", "mentioned": "提及"}
+
+    conn = get_conn()
+    rows = [dict(r) for r in conn.execute(
+        """SELECT collaborator_name, collaborator_person_id, relation, context
+           FROM collaborations WHERE person_id=?""", (person_id,)).fetchall()]
+
+    # 按名字去重，保留优先级最高的关系
+    best = {}
+    for r in rows:
+        nm = (r["collaborator_name"] or "").strip()
+        if not nm or nm.lower() == f"{person['first_name']} {person['last_name']}".lower():
+            continue
+        rel = (r["relation"] or "coauthor").lower()
+        pr = REL_PRIORITY.get(rel, 5)
+        if nm not in best or pr < best[nm]["pr"]:
+            best[nm] = {"name": nm, "pid": r["collaborator_person_id"], "rel": rel,
+                        "pr": pr, "context": r["context"] or ""}
+
+    # 排序：关系优先级 → 在库优先 → 取前 36 个，保证可读
+    collabs = sorted(best.values(), key=lambda x: (x["pr"], x["pid"] is None))[:36]
+
+    nodes = [{"id": "center", "name": f"{person['first_name']} {person['last_name']}",
+              "rel": "self", "pid": person_id, "in_db": True,
+              "aff": person.get("institution") or person.get("company") or ""}]
+    links = [{"source": "center", "target": f"n{i}", "rel": c["rel"]}
+             for i, c in enumerate(collabs)]
+    id_by_pid = {}
+    for i, c in enumerate(collabs):
+        nid = f"n{i}"
+        nodes.append({"id": nid, "name": c["name"], "rel": c["rel"],
+                      "pid": c["pid"], "in_db": c["pid"] is not None, "context": c["context"]})
+        if c["pid"]:
+            id_by_pid[c["pid"]] = nid
+
+    # 二度连线：本人的在库合作者之间，若彼此也有合作关系，连起来 → 形成网络
+    db_pids = [p for p in id_by_pid]
+    if len(db_pids) > 1:
+        ph = ",".join("?" * len(db_pids))
+        for r in conn.execute(
+            f"""SELECT DISTINCT person_id, collaborator_person_id FROM collaborations
+                WHERE person_id IN ({ph}) AND collaborator_person_id IN ({ph})""",
+            db_pids + db_pids).fetchall():
+            a, b = id_by_pid.get(r["person_id"]), id_by_pid.get(r["collaborator_person_id"])
+            if a and b and a != b:
+                links.append({"source": a, "target": b, "rel": "peer", "peer": True})
+    conn.close()
+    return jsonify({"nodes": nodes, "links": links, "rel_label": REL_LABEL})
+
+
+@app.route("/api/pool/lens-counts", methods=["GET"])
+def api_lens_counts():
+    from db import LENS_WHERE
+    conn = get_conn()
+    counts = {"all": conn.execute("SELECT COUNT(*) FROM people").fetchone()[0]}
+    for lens, cond in LENS_WHERE.items():
+        counts["conf" if lens == "conf" else lens] = conn.execute(
+            f"SELECT COUNT(*) FROM people p WHERE {cond}").fetchone()[0]
+    conn.close()
+    return jsonify(counts)
 
 
 @app.route("/api/people/<int:person_id>", methods=["GET"])
@@ -1803,6 +2107,12 @@ def api_lab_import():
         source = (m.get("source") or "").strip()
         advisor = (m.get("advisor") or source).strip()
         expected_graduation = m.get("expected_graduation")
+        # Per-member institution overrides top-level institution
+        member_institution = (m.get("institution") or "").strip()
+        if member_institution:
+            institution_for_row = member_institution
+        else:
+            institution_for_row = institution
 
         # Split name into first/last
         name_parts = name.split()
@@ -1823,7 +2133,17 @@ def api_lab_import():
 
         if existing:
             skipped += 1
-            details.append({"name": name, "status": "skipped", "reason": "duplicate"})
+            existing_id = existing["id"]
+            details.append({"name": name, "status": "skipped", "reason": "duplicate", "person_id": existing_id})
+            # Still add tags to existing person (e.g., new conference tag)
+            member_tags = m.get("tags", [])
+            for tag_info in member_tags:
+                if isinstance(tag_info, str):
+                    add_person_tag(existing_id, tag_info, category="conference", source="auto")
+                elif isinstance(tag_info, dict):
+                    add_person_tag(existing_id, tag_info["name"],
+                                   category=tag_info.get("category", "custom"),
+                                   source=tag_info.get("source", "auto"))
             continue
 
         try:
@@ -1836,7 +2156,7 @@ def api_lab_import():
                 (first_name, last_name, placeholder_url, email or None,
                  role, research_area, f"Source: {source}" if source else None,
                  "lab_sourcer",
-                 "academic", advisor or None, institution or None,
+                 m.get("source_type", "academic"), advisor or None, institution_for_row or None,
                  personal_page or None, expected_graduation, research_area or None),
             )
             person_id = cur.lastrowid
@@ -1846,9 +2166,28 @@ def api_lab_import():
             # Update FTS index for the new person
             conn.commit()
             update_fts_for_person(person_id)
+
+            # Auto-tag if tags provided
+            member_tags = m.get("tags", [])
+            for tag_info in member_tags:
+                if isinstance(tag_info, str):
+                    add_person_tag(person_id, tag_info, category="conference", source="auto")
+                elif isinstance(tag_info, dict):
+                    add_person_tag(person_id, tag_info["name"],
+                                   category=tag_info.get("category", "custom"),
+                                   source=tag_info.get("source", "auto"))
         except Exception as e:
             failed += 1
             details.append({"name": name, "status": "failed", "reason": str(e)})
+
+    # Also handle top-level tags (applied to all imported members)
+    global_tags = data.get("tags", [])
+    if global_tags:
+        for d in details:
+            if d["status"] == "imported" and d.get("person_id"):
+                for tag in global_tags:
+                    if isinstance(tag, str):
+                        add_person_tag(d["person_id"], tag, category="conference", source="auto")
 
     conn.commit()
     conn.close()
@@ -1859,6 +2198,40 @@ def api_lab_import():
         "failed": failed,
         "details": details,
     })
+
+
+# ── Tag API ──
+
+@app.route("/api/tags", methods=["GET"])
+def api_tags():
+    """Get all tags with counts."""
+    return jsonify(get_all_tags())
+
+
+@app.route("/api/person/<int:person_id>/tags", methods=["GET"])
+def api_person_tags(person_id):
+    """Get tags for a person."""
+    return jsonify(get_person_tags(person_id))
+
+
+@app.route("/api/person/<int:person_id>/tags", methods=["POST"])
+def api_add_person_tag(person_id):
+    """Add a tag to a person."""
+    data = request.json or {}
+    tag_name = data.get("name", "").strip()
+    if not tag_name:
+        return jsonify({"error": "Tag name required"}), 400
+    category = data.get("category", "custom")
+    source = data.get("source", "manual")
+    add_person_tag(person_id, tag_name, category=category, source=source)
+    return jsonify({"ok": True, "tags": get_person_tags(person_id)})
+
+
+@app.route("/api/person/<int:person_id>/tags/<int:tag_id>", methods=["DELETE"])
+def api_remove_person_tag(person_id, tag_id):
+    """Remove a tag from a person."""
+    remove_person_tag(person_id, tag_id)
+    return jsonify({"ok": True, "tags": get_person_tags(person_id)})
 
 
 @app.route("/api/lab-sourcer/batch-fast-scrape", methods=["POST"])
@@ -2077,6 +2450,326 @@ def api_enrich_pages():
         for msg in messages:
             yield f"data: {json.dumps({'type': 'status', 'message': msg})}\n\n"
         yield f"data: {json.dumps({'type': 'result', 'members': enriched})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ── Conference Sourcing ───────────────────────────────────────────────────
+# Multi-phase pipeline: papers → Chinese filter → arXiv HTML → classify
+
+# In-memory state for the current conference sourcing session
+_conf_session = {
+    'papers': [],           # all loaded papers
+    'chinese_papers': [],   # after Chinese filter
+    'author_data': {},      # enriched author data
+    'arxiv_cache': {},      # title -> arxiv_id
+}
+
+
+@app.route("/api/conference/papers", methods=["POST"])
+def api_conference_papers():
+    """Phase 1: Fetch paper list from OpenReview."""
+    data = request.json or {}
+    venue = data.get("venue", "")
+    year = data.get("year", 2025)
+    tiers = data.get("tiers", [])
+
+    if venue not in CONFERENCE_VENUES:
+        return jsonify({"error": f"Unknown venue: {venue}"}), 400
+    if not tiers:
+        return jsonify({"error": "No tiers selected"}), 400
+
+    def generate():
+        yield f"data: {json.dumps({'type': 'progress', 'message': f'Fetching {venue} {year} papers...'})}\n\n"
+
+        def status_cb(msg):
+            pass
+
+        papers = fetch_papers_openreview(venue, year, tiers, status_cb=status_cb)
+        _conf_session['papers'] = papers
+        _conf_session['chinese_papers'] = []
+        _conf_session['author_data'] = {}
+        _conf_session['arxiv_cache'] = {}
+
+        from collections import Counter
+        tier_counts = Counter(p["venue_tier"] for p in papers)
+        stats = {"total": len(papers), "by_tier": dict(tier_counts)}
+
+        yield f"data: {json.dumps({'type': 'papers', 'data': papers, 'stats': stats})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'message': f'{len(papers)} unique first authors from {venue} {year}'})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.route("/api/conference/upload", methods=["POST"])
+def api_conference_upload():
+    """Phase 1 (alt): Upload Paper Digest JSON or CSV file."""
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    content = file.read().decode("utf-8", errors="replace")
+    filename = file.filename or ""
+
+    try:
+        if filename.endswith(".json"):
+            raw = json.loads(content)
+            if isinstance(raw, list):
+                papers = parse_paperdigest_json(raw)
+            elif isinstance(raw, dict) and 'papers' in raw:
+                papers = parse_paperdigest_json(raw['papers'])
+            else:
+                return jsonify({"error": "Unrecognized JSON format"}), 400
+        elif filename.endswith(".csv"):
+            papers = parse_paperdigest_csv(content)
+        else:
+            # Try JSON first, then CSV
+            try:
+                raw = json.loads(content)
+                papers = parse_paperdigest_json(raw if isinstance(raw, list) else raw.get('papers', []))
+            except json.JSONDecodeError:
+                papers = parse_paperdigest_csv(content)
+    except Exception as e:
+        return jsonify({"error": f"Parse error: {e}"}), 400
+
+    _conf_session['papers'] = papers
+    _conf_session['chinese_papers'] = []
+    _conf_session['author_data'] = {}
+    _conf_session['arxiv_cache'] = {}
+
+    return jsonify({
+        "total": len(papers),
+        "sample": papers[:3],
+        "message": f"Loaded {len(papers)} papers from {filename}",
+    })
+
+
+@app.route("/api/conference/filter", methods=["POST"])
+def api_conference_filter():
+    """Phase 2: Apply Chinese surname filter to loaded papers."""
+    data = request.json or {}
+    paper_indices = data.get("indices")  # optional subset
+
+    papers = _conf_session.get('papers', [])
+    if not papers:
+        return jsonify({"error": "No papers loaded. Upload or fetch first."}), 400
+
+    if paper_indices is not None:
+        papers = [papers[i] for i in paper_indices if 0 <= i < len(papers)]
+
+    chinese_papers, stats = filter_chinese_authors(papers)
+    _conf_session['chinese_papers'] = chinese_papers
+
+    # Build summary: papers with Chinese authors + their names
+    summary = []
+    for p in chinese_papers:
+        summary.append({
+            'title': p['title'],
+            'authors': p['authors'],
+            'chinese_authors': p['chinese_authors'],
+            'org': p.get('org', ''),
+            'rank': p.get('rank', ''),
+        })
+
+    return jsonify({
+        'total_papers': stats['total'],
+        'chinese_papers': stats['chinese'],
+        'papers': summary,
+    })
+
+
+@app.route("/api/conference/enrich", methods=["POST"])
+def api_conference_enrich():
+    """Phase 3: arXiv HTML enrichment (SSE streaming)."""
+    chinese_papers = _conf_session.get('chinese_papers', [])
+    if not chinese_papers:
+        return jsonify({"error": "No Chinese-authored papers. Run filter first."}), 400
+
+    def generate():
+        events = []
+
+        def yield_cb(evt):
+            events.append(evt)
+
+        author_data = _conf_session.get('author_data', {})
+        arxiv_cache = _conf_session.get('arxiv_cache', {})
+
+        yield f"data: {json.dumps({'type': 'progress', 'current': 0, 'total': len(chinese_papers), 'message': f'Starting arXiv enrichment for {len(chinese_papers)} papers...'})}\n\n"
+
+        session = None
+        try:
+            import socket as _socket
+            _socket.setdefaulttimeout(30)
+            session = requests.Session()
+        except Exception:
+            pass
+
+        total = len(chinese_papers)
+        parsed = 0
+        no_arxiv = 0
+        failed = 0
+        rate_limited = 0
+        consecutive_fail = 0
+
+        for pi, paper in enumerate(chinese_papers):
+            title = paper['title']
+
+            # Register Chinese authors
+            for idx, aname in enumerate(paper.get('chinese_authors', paper.get('authors', []))):
+                from conference_scraper import has_chinese_surname as _hcs
+                if not _hcs(aname):
+                    continue
+                key = aname.lower().strip()
+                if key not in author_data:
+                    author_data[key] = {
+                        'name': aname,
+                        'institution': paper.get('org', '') if idx == 0 else '',
+                        'email': '',
+                        'papers': [],
+                        'source': 'paperdigest' if idx == 0 and paper.get('org') else 'none',
+                    }
+                existing_titles = {pp.get('title', '') for pp in author_data[key]['papers']}
+                if title not in existing_titles:
+                    author_data[key]['papers'].append({
+                        'title': title,
+                        'rank': paper.get('rank', ''),
+                        'first_author': idx == 0,
+                    })
+
+            # Session recycling
+            if pi > 0 and pi % 80 == 0:
+                try:
+                    session.close()
+                except Exception:
+                    pass
+                session = requests.Session()
+                _socket.setdefaulttimeout(30)
+
+            # Search arXiv ID
+            from conference_scraper import search_arxiv_id, parse_arxiv_html, _safe_get, _merge_html_authors
+            from conference_scraper import ARXIV_COOKIES, BROWSER_HEADERS
+
+            arxiv_id = arxiv_cache.get(title)
+            if not arxiv_id:
+                arxiv_id = search_arxiv_id(title, session)
+                if arxiv_id and arxiv_id != 'RATE_LIMITED':
+                    arxiv_cache[title] = arxiv_id
+                elif arxiv_id == 'RATE_LIMITED':
+                    rate_limited += 1
+                    consecutive_fail += 1
+                    if consecutive_fail >= 3:
+                        yield f"data: {json.dumps({'type': 'log', 'message': 'arXiv rate limited, stopping', 'level': 'error'})}\n\n"
+                        break
+                    time.sleep(10)
+                    continue
+                else:
+                    no_arxiv += 1
+                    time.sleep(2)
+
+            # Fetch HTML
+            if arxiv_id and arxiv_id != 'RATE_LIMITED':
+                r = _safe_get(session, f'https://arxiv.org/html/{arxiv_id}',
+                              cookies=ARXIV_COOKIES, headers=BROWSER_HEADERS, timeout=(5, 20))
+
+                if r is None:
+                    consecutive_fail += 1
+                    failed += 1
+                    if consecutive_fail >= 5:
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'{consecutive_fail} consecutive timeouts, stopping', 'level': 'error'})}\n\n"
+                        break
+                    time.sleep(5)
+                    continue
+
+                if r.status_code == 200 and len(r.text) > 1000:
+                    consecutive_fail = 0
+                    html_authors = parse_arxiv_html(r.text)
+                    if html_authors:
+                        _merge_html_authors(html_authors, author_data)
+                        parsed += 1
+                    else:
+                        no_arxiv += 1
+                elif r.status_code == 429:
+                    rate_limited += 1
+                    consecutive_fail += 1
+                    if consecutive_fail >= 3:
+                        yield f"data: {json.dumps({'type': 'log', 'message': 'arXiv rate limited, stopping', 'level': 'error'})}\n\n"
+                        break
+                    time.sleep(15)
+                    continue
+                elif r.status_code == 404:
+                    no_arxiv += 1
+                    consecutive_fail = 0
+                else:
+                    failed += 1
+                    consecutive_fail = 0
+
+                time.sleep(4)
+
+            # Progress every 5 papers
+            if (pi + 1) % 5 == 0 or pi == total - 1:
+                yield f"data: {json.dumps({'type': 'progress', 'current': pi + 1, 'total': total, 'message': f'[{pi+1}/{total}] parsed: {parsed}, no_arxiv: {no_arxiv}'})}\n\n"
+
+        # Save state
+        _conf_session['author_data'] = author_data
+        _conf_session['arxiv_cache'] = arxiv_cache
+
+        # Build classified results
+        results = build_results(author_data)
+        yield f"data: {json.dumps({'type': 'results', 'data': results})}\n\n"
+        s = results['stats']
+        done_msg = f"Done. Parsed: {parsed}, Industry: {s['industry_count']}, Academic: {s['academic_count']}, Unknown: {s['unknown_count']}"
+        yield f"data: {json.dumps({'type': 'done', 'message': done_msg})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.route("/api/conference/results", methods=["GET"])
+def api_conference_results():
+    """Get current classified results without re-running enrichment."""
+    author_data = _conf_session.get('author_data', {})
+    if not author_data:
+        return jsonify({"error": "No data. Run the pipeline first."}), 400
+    results = build_results(author_data)
+    return jsonify(results)
+
+
+@app.route("/api/conference/authors", methods=["POST"])
+def api_conference_authors():
+    """Phase 2 (OpenReview path): Fetch author profiles and stream as members."""
+    data = request.json or {}
+    papers = data.get("papers", [])
+    venue_label = data.get("venue_label", "")
+
+    if not papers:
+        return jsonify({"error": "No papers provided"}), 400
+
+    def generate():
+        total = len(papers)
+        yield f"data: {json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': f'Fetching {total} author profiles...'})}\n\n"
+
+        for i, paper in enumerate(papers):
+            author_name = paper["authors"][0] if paper.get("authors") else "Unknown"
+            author_id = paper["authorids"][0] if paper.get("authorids") else None
+
+            yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'message': f'[{i+1}/{total}] {author_name}'})}\n\n"
+
+            profile = None
+            if author_id and author_id.startswith("~"):
+                profile = fetch_author_profile(author_id)
+
+            member = map_to_member(paper, profile)
+            if venue_label:
+                member["source"] = f"{venue_label} {member['source']}"
+
+            yield f"data: {json.dumps({'type': 'members', 'data': [member]})}\n\n"
+
+            if not profile:
+                yield f"data: {json.dumps({'type': 'log', 'message': f'{author_name}: no profile found', 'level': 'warn'})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done', 'message': f'Complete: {total} authors processed'})}\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

@@ -101,6 +101,7 @@
       border: 1px solid var(--text);
     }
     .nav-btn-primary:hover { background: #333; }
+    .nav-btn-demo { text-decoration: none; display: inline-flex; align-items: center; letter-spacing: 0.02em; }
 
     /* ── LAYOUT ── */
     .main { max-width: 1280px; margin: 0 auto; padding: 24px 32px; }
@@ -299,10 +300,26 @@
       font-weight: 600;
       letter-spacing: 0.02em;
     }
-    .status-new       { background: #e8f5e9; color: #2e7d32; }
     .status-contacted { background: #e3f2fd; color: #1565c0; }
     .status-replied   { background: #fff3e0; color: #e65100; }
     .status-interview { background: #f3e5f5; color: #7b1fa2; }
+
+    /* ── 信号徽章：顶会 / 开源 / 已补充 ── */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2.5px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.01em;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .chip.venue { background: linear-gradient(135deg, #eaf3fe, #e3edfb); color: #0a66c2; border: 1px solid #d4e6fa; }
+    .chip.oss { background: linear-gradient(135deg, #e8f9ee, #ddf5e6); color: #1d7a3e; border: 1px solid #c9eed7; }
+    .chip.enriched { background: #f3f0fd; color: #6741d9; border: 1px solid #e6dffb; }
 
     .cb-cell { width: 40px; text-align: center; }
     .cb-cell input { accent-color: var(--accent); cursor: pointer; width: 15px; height: 15px; }
@@ -515,21 +532,35 @@
       font-family: inherit;
       font-size: 0.82rem;
       font-weight: 500;
-      padding: 7px 20px;
+      padding: 7px 18px;
       border: none;
       border-radius: 6px;
       cursor: pointer;
       background: transparent;
       color: var(--text-tertiary);
-      transition: all 0.15s;
+      transition: all 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
     .pool-tab:hover { color: var(--text-primary); }
     .pool-tab.active {
       background: var(--surface);
       color: var(--text-primary);
       font-weight: 600;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.02);
     }
+    .tab-count {
+      font-size: 0.66rem;
+      font-weight: 600;
+      font-family: var(--mono, monospace);
+      color: var(--text-tertiary);
+      background: rgba(0,0,0,0.05);
+      padding: 1px 7px;
+      border-radius: 999px;
+      transition: all 0.18s;
+    }
+    .pool-tab.active .tab-count { background: var(--accent-bg, #fdf2f0); color: var(--accent); }
 
     /* Academic embed */
     #academic-view { margin-top: -8px; }
@@ -577,17 +608,23 @@
     <a href="/outreach" class="nav-link">Outreach</a>
   </div>
   <div class="nav-right">
+    <a class="nav-btn nav-btn-demo" href="/demo">Demo</a>
     <button class="nav-btn" onclick="openAddModal()">+ 添加候选人</button>
   </div>
 </nav>
 
 <div class="main">
 
-  <!-- POOL TABS -->
+  <!-- POOL TABS：同一池子上的不同切入视角 -->
+  <div style="display:flex;align-items:center;gap:12px;">
   <div class="pool-tabs" id="pool-tabs">
-    <button class="pool-tab active" data-tab="all" onclick="switchPoolTab('all')">All</button>
-    <button class="pool-tab" data-tab="academic" onclick="switchPoolTab('academic')">Academic</button>
-    <button class="pool-tab" data-tab="industry" onclick="switchPoolTab('industry')">Industry</button>
+    <button class="pool-tab active" data-tab="all" onclick="switchPoolTab('all')">All <span class="tab-count" id="count-all"></span></button>
+    <button class="pool-tab" data-tab="academic" onclick="switchPoolTab('academic')">Academic <span class="tab-count" id="count-academic"></span></button>
+    <button class="pool-tab" data-tab="industry" onclick="switchPoolTab('industry')">Industry <span class="tab-count" id="count-industry"></span></button>
+    <button class="pool-tab" data-tab="conf" onclick="switchPoolTab('conf')">顶会 <span class="tab-count" id="count-conf"></span></button>
+    <button class="pool-tab" data-tab="oss" onclick="switchPoolTab('oss')">开源 <span class="tab-count" id="count-oss"></span></button>
+  </div>
+  <a href="/pool/github-review" style="font-size:0.76rem;color:var(--text-tertiary);text-decoration:none;margin-bottom:16px;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-tertiary)'">GitHub 验证复核 →</a>
   </div>
 
   <!-- ACADEMIC VIEW (hidden by default) -->
@@ -667,7 +704,7 @@
           <th>公司</th>
           <th>地点</th>
           <th>链接</th>
-          <th>状态</th>
+          <th>信号</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -928,7 +965,8 @@
     const q = document.getElementById('search').value.trim();
     currentPage = page;
 
-    const resp = await fetch(`/api/people?q=${encodeURIComponent(q)}&page=${page}&per_page=${perPage}`);
+    const lens = (currentPoolTab === 'all' || currentPoolTab === 'academic') ? '' : currentPoolTab;
+    const resp = await fetch(`/api/people?q=${encodeURIComponent(q)}&page=${page}&per_page=${perPage}&lens=${lens}`);
     const json = await resp.json();
     const { data, total } = json;
     currentData = data;
@@ -947,6 +985,11 @@
 
     if (!data.length) {
       tbody.innerHTML = '';
+      const emptyHints = {
+        conf: '还没有会议发表数据 — 从 Discover 导入会议候选人后，这里会按 ICML / NeurIPS / CVPR 聚合',
+        oss: '还没有已验证的开源候选人 — GitHub 身份验证跑完后这里会自动出现',
+      };
+      empty.textContent = (!q && emptyHints[currentPoolTab]) || '没有找到匹配的候选人';
       empty.style.display = 'block';
       document.getElementById('pagination').innerHTML = '';
       return;
@@ -961,21 +1004,34 @@
         </td>
         <td class="name-cell" onclick="window.location='/people/${p.id}'">${esc(p.first_name)} ${esc(p.last_name)}</td>
         <td class="title-cell">${esc(p.title || '')}</td>
-        <td class="company-cell">${esc(p.company || '')}</td>
+        <td class="company-cell">${esc(p.company || p.institution || '')}</td>
         <td class="location-cell">${esc(shortLoc(p.location))}</td>
         <td>
           ${p.linkedin_url ? `<a class="link-pill linkedin" href="${esc(p.linkedin_url)}" target="_blank" onclick="event.stopPropagation()">in</a>` : ''}
           ${p.github_url ? `<a class="link-pill github" href="${esc(p.github_url)}" target="_blank" onclick="event.stopPropagation()">gh</a>` : ''}
+          ${!p.linkedin_url ? `<a class="link-pill" style="background:#fff3e0;color:#e65100;border:1px solid #ffcc80;" href="https://www.google.com/search?q=${encodeURIComponent('"' + (p.first_name||'') + ' ' + (p.last_name||'') + '" ' + (p.company||p.title||''))}" target="_blank" onclick="event.stopPropagation()" title="Google Search">🔍</a>` : ''}
         </td>
-        <td>
-          <span class="status-badge status-${p.status || 'new'}">${statusLabel(p.status)}</span>
-          ${p.notes === 'linkedin_enriched' ? '<span class="status-badge" style="background:#e8f0fe;color:#1a73e8;margin-left:4px;">已补充</span>' : ''}
-        </td>
+        <td>${signalChips(p)}</td>
       </tr>
     `).join('');
 
     document.getElementById('select-all').checked = data.length > 0 && data.every(p => selected.has(p.id));
     renderPagination(total, page);
+  }
+
+  const OSS_VERIFIED = new Set(['verified_link', 'verified_email', 'llm_confirmed']);
+
+  // 信号徽章：顶会(按 venue) / 开源(已验证 GitHub) / 已补充 / pipeline 状态（"新"不展示）
+  function signalChips(p) {
+    let chips = '';
+    if (p.venues) {
+      chips += [...new Set(p.venues.split(','))].slice(0, 3)
+        .map(v => `<span class="chip venue">${esc(v.trim())}</span>`).join('');
+    }
+    if (OSS_VERIFIED.has(p.github_verified)) chips += '<span class="chip oss">开源</span>';
+    if (p.notes === 'linkedin_enriched') chips += '<span class="chip enriched">已补充</span>';
+    if (p.status && p.status !== 'new') chips += `<span class="status-badge status-${p.status}">${statusLabel(p.status)}</span>`;
+    return chips || '<span style="color:var(--text-tertiary);font-size:0.72rem;">—</span>';
   }
 
   function renderPagination(total, page) {
@@ -1168,8 +1224,21 @@
     if (tab === 'academic') {
       loadAcademicFilters();
       loadAcademic();
+    } else {
+      loadPeople(1);
     }
   }
+
+  async function loadLensCounts() {
+    try {
+      const d = await (await fetch('/api/pool/lens-counts')).json();
+      for (const [k, v] of Object.entries(d)) {
+        const el = document.getElementById('count-' + k);
+        if (el) el.textContent = v.toLocaleString();
+      }
+    } catch(e) {}
+  }
+  loadLensCounts();
 
   // ── Academic View ──
   async function loadAcademicFilters() {
@@ -1247,8 +1316,12 @@
       const name = (p.first_name || '') + ' ' + (p.last_name || '');
       const areas = (p.research_area||'').split(/[,;]/).slice(0,3).filter(Boolean).map(a => `<span class="area-chip">${esc(a.trim())}</span>`).join('');
       const status = p.status || 'new';
+      const gq = encodeURIComponent(`"${name.trim()}" ${p.institution||''} ${(p.headline||'').split(/[:\|]/)[0].trim().substring(0,40)}`);
       return `<tr>
-        <td style="font-weight:500;white-space:nowrap;"><a href="/pool/${p.id}" style="color:var(--accent);text-decoration:none;">${esc(name.trim())}</a></td>
+        <td style="font-weight:500;white-space:nowrap;">
+          <a href="/pool/${p.id}" style="color:var(--accent);text-decoration:none;">${esc(name.trim())}</a>
+          <a href="https://www.google.com/search?q=${gq}" target="_blank" rel="noopener" title="Google Search" style="margin-left:5px;color:var(--text-tertiary);font-size:0.7rem;text-decoration:none;opacity:0.6;vertical-align:middle;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🔍</a>
+        </td>
         <td>${p.title ? `<span class="badge-role">${esc(p.title)}</span>` : ''}</td>
         <td>${esc(p.advisor||'')}</td>
         <td>${esc(p.institution||'')}</td>

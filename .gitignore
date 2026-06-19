@@ -8,3 +8,6 @@ data/
 *.db-journal
 *.db-wal
 .claude/
+
+# Office 临时锁文件
+~$*

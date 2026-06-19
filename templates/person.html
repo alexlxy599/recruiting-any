@@ -123,6 +123,105 @@
       margin: 18px 0;
     }
 
+    /* ── 顶会发表 ── */
+    .pub-row { display: flex; align-items: baseline; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border-light, #f0f0f3); }
+    .pub-row:last-child { border-bottom: none; }
+    .pub-venue { font-size: 0.7rem; font-weight: 700; color: #0a66c2; background: #eaf3fe; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+    .pub-first { font-size: 0.66rem; font-weight: 700; color: #b8860b; background: #fdf6e3; border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+    .pub-title { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45; }
+
+    /* ── GitHub 画像 ── */
+    .gh-badge {
+      font-size: 0.64rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .gh-verified { background: #e8f9ee; color: #1d7a3e; }
+    .gh-llm { background: #eaf3fe; color: #0a66c2; }
+    .gh-uncertain { background: #fff4e5; color: #b96a00; }
+    .gh-rejected { background: #fdf2f0; color: #c0392b; }
+    .gh-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; }
+    .gh-bio { font-size: 0.84rem; color: var(--text-primary, #1d1d1f); margin-bottom: 10px; line-height: 1.5; }
+    .gh-block-label { font-size: 0.68rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; margin: 12px 0 6px; }
+    .gh-summary {
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: var(--text-primary, #1d1d1f);
+      background: linear-gradient(135deg, #fbf9f5, #f7f4ee);
+      border: 1px solid #efe9dd;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 4px;
+    }
+    .gh-lang {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: #f0f0f3;
+      border-radius: 999px;
+      padding: 2px 9px;
+      margin: 0 4px 4px 0;
+    }
+    .gh-repo { padding: 8px 0; border-bottom: 1px solid var(--border-light, #f0f0f3); }
+    .gh-repo:last-of-type { border-bottom: none; }
+    .gh-repo-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .gh-repo-name { font-size: 0.82rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+    .gh-repo-stars { font-size: 0.72rem; color: #b8860b; font-weight: 600; }
+    .gh-repo-lang { font-size: 0.7rem; color: var(--text-tertiary); }
+    .gh-repo-date { font-size: 0.7rem; color: var(--text-tertiary); margin-left: auto; }
+    .gh-repo-desc { font-size: 0.76rem; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
+    .hp-collab {
+      display: inline-flex; align-items: baseline; gap: 5px;
+      font-size: 0.76rem; padding: 3px 10px; border-radius: 999px;
+      background: #f5f3ef; border: 1px solid #e9e5dd; color: var(--text-primary, #1d1d1f);
+    }
+    .hp-collab em { font-style: normal; font-size: 0.66rem; color: var(--text-tertiary); }
+    .hp-collab a { text-decoration: none; font-weight: 600; }
+    .hp-collab a:hover { color: var(--accent) !important; }
+
+    /* ── 研究方向词云 ── */
+    #wordcloud { width: 100%; height: 168px; }
+    #wordcloud svg { display: block; width: 100%; }
+    #wordcloud text { font-family: var(--font, sans-serif); font-weight: 600;
+      cursor: default; transition: fill-opacity 0.2s; }
+
+    /* ── 关系网络图 ── */
+    #net-graph { width: 100%; height: 400px; border-radius: 10px;
+      background: radial-gradient(circle at 50% 45%, #fbfbfc 0%, #f4f4f6 100%);
+      border: 1px solid var(--border); position: relative; overflow: hidden; cursor: grab; }
+    #net-graph:active { cursor: grabbing; }
+    #net-graph svg { display: block; }
+    #net-graph .link { stroke: #c4c8d0; stroke-width: 1px; }
+    #net-graph .link.peer { stroke: #b9cbe2; stroke-dasharray: 2 3; }
+    #net-graph .link.advisor { stroke: #e0bd6e; stroke-width: 1.5px; }
+    #net-graph .node circle { cursor: pointer; transition: stroke-width 0.12s; }
+    #net-graph .node text { font-family: var(--font, sans-serif); pointer-events: none;
+      font-size: 9.5px; fill: var(--text-secondary, #555); }
+    #net-graph .node.dim { opacity: 0.25; }
+    .net-legend { font-size: 0.64rem; font-weight: 500; color: var(--text-tertiary);
+      text-transform: none; letter-spacing: 0; display: flex; align-items: center; gap: 4px; }
+    .net-legend .lg-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-left: 6px; }
+    .lg-dot.lg-self { background: #c0392b; } .lg-dot.lg-advisor { background: #d4a843; }
+    .lg-dot.lg-indb { background: #4a7fb5; } .lg-dot.lg-out { background: #fff; border: 1.5px solid #c4c4cc; }
+    .net-tip { font-size: 0.74rem; color: var(--text-secondary); min-height: 18px;
+      margin-top: 6px; line-height: 1.4; }
+    .net-tip b { color: var(--text-primary, #1d1d1f); }
+    .tl-wrap { max-height: 240px; overflow-y: auto; }
+    .tl-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 6px 0; border-bottom: 1px solid var(--border-light, #f0f0f3);
+    }
+    .tl-row:last-child { border-bottom: none; }
+    .tl-date {
+      flex: 0 0 64px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+      font-weight: 600; color: var(--text-tertiary); padding-top: 1px;
+    }
+    .tl-text { font-size: 0.78rem; line-height: 1.5; color: var(--text-secondary); }
+
     /* ── Left: Profile Card ── */
     .profile-avatar {
       width: 56px;
@@ -170,6 +269,16 @@
       font-weight: 500;
     }
     .profile-link:hover { background: var(--enriched-bg); border-color: var(--accent-blue); }
+    .discover-btn {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 12px; padding: 11px 14px; border-radius: 10px;
+      background: linear-gradient(135deg, #c0392b, #a83224); color: #fff;
+      text-decoration: none; font-size: 0.84rem; font-weight: 600;
+      box-shadow: 0 2px 10px rgba(192,57,43,0.18); transition: transform .14s, box-shadow .14s;
+    }
+    .discover-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(192,57,43,0.28); }
+    .discover-btn .arr { font-size: 1.05rem; transition: transform .14s; }
+    .discover-btn:hover .arr { transform: translateX(3px); }
 
     .info-label {
       font-size: 0.68rem;
@@ -541,6 +650,8 @@
       .fab-gen { display: none; }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.7/build/d3.layout.cloud.js"></script>
 </head>
 <body>
 
@@ -578,10 +689,21 @@
           {% if person.github_url %}
           <a class="profile-link" href="{{ person.github_url }}" target="_blank">GitHub</a>
           {% endif %}
+          {% if person.personal_page %}
+          <a class="profile-link" href="{{ person.personal_page }}" target="_blank">Homepage</a>
+          {% endif %}
           {% if person.email %}
           <a class="profile-link" href="mailto:{{ person.email }}">{{ person.email }}</a>
           {% endif %}
+          <a class="profile-link" href="https://www.google.com/search?q={{ (person.first_name ~ ' ' ~ person.last_name ~ ' ' ~ (person.institution or '') ~ ' ' ~ (person.headline or '')[:40])|urlencode }}" target="_blank" style="background:#fff3e0;border-color:#ffcc80;">Google 搜索</a>
         </div>
+
+        {% if has_discovery %}
+        <a class="discover-btn" href="/discover/{{ person.id }}">
+          <span>向外发现 · 同研究线上的库外同行</span>
+          <span class="arr">→</span>
+        </a>
+        {% endif %}
 
         <div class="sep"></div>
 
@@ -624,6 +746,13 @@
           {% if person.notes == 'linkedin_enriched' %}
           <span class="tag tag-enriched">LinkedIn 已补充</span>
           {% endif %}
+          {% for tag in person.tags %}
+          <span class="tag" style="
+            {% if tag.category == 'conference' %}background:#e8f5e9;color:#2e7d32;
+            {% elif tag.category == 'industry' %}background:#fff3e0;color:#e65100;
+            {% else %}background:var(--tag-bg);color:var(--tag-text);{% endif %}
+          ">{{ tag.name }}</span>
+          {% endfor %}
         </div>
       </div>
     </div>
@@ -667,6 +796,123 @@
         {% endif %}
       </div>
     </div>
+
+    {% if person.publications %}
+    <div class="card">
+      <div class="section-label">顶会发表 ({{ person.publications|length }})</div>
+      <div class="card-body" style="padding-top:8px;">
+        {% for pub in person.publications %}
+        <div class="pub-row">
+          <span class="pub-venue">{{ pub.venue }} {{ pub.year }}</span>
+          {% if pub.is_first_author %}<span class="pub-first">一作</span>{% endif %}
+          <span class="pub-title">{{ pub.title }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if homepage_profile %}
+    <div class="card">
+      <div class="section-label">个人主页画像 <span style="text-transform:none;letter-spacing:0;font-weight:500;">· AI 提取</span></div>
+      <div class="card-body">
+        {% if homepage_profile.summary_zh %}
+        <div class="gh-summary" style="margin-bottom:10px;">{{ homepage_profile.summary_zh }}</div>
+        {% endif %}
+        {% set cur = homepage_profile.current or {} %}
+        <div class="gh-meta">
+          {% if cur.role %}<span><strong>{{ cur.role }}</strong>{% if cur.institution %} @ {{ cur.institution }}{% endif %}</span>{% endif %}
+          {% if cur.lab %}<span>实验室: {{ cur.lab }}</span>{% endif %}
+          {% if cur.advisor %}<span>导师: {{ cur.advisor }}</span>{% endif %}
+        </div>
+        {% if wordcloud %}
+        <div class="gh-block-label">研究方向</div>
+        <div id="wordcloud"></div>
+        <script type="application/json" id="wc-data">{{ wordcloud|tojson }}</script>
+        {% endif %}
+        {% if homepage_profile.collabs %}
+        <div class="gh-block-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>关系网</span>
+          <span class="net-legend">
+            <i class="lg-dot lg-self"></i>本人
+            <i class="lg-dot lg-advisor"></i>导师/mentor
+            <i class="lg-dot lg-indb"></i>库内
+            <i class="lg-dot lg-out"></i>待补
+          </span>
+        </div>
+        <div id="net-graph" data-pid="{{ person.id }}"></div>
+        <div id="net-tip" class="net-tip"></div>
+        {% endif %}
+        {% if homepage_profile.timeline %}
+        <div class="gh-block-label">动态时间线（主页 News）</div>
+        <div class="tl-wrap">
+          {% for t in homepage_profile.timeline %}
+          <div class="tl-row">
+            <span class="tl-date">{{ t.date or '—' }}</span>
+            <span class="tl-text">{{ t.text }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if github %}
+    <div class="card">
+      <div class="section-label" style="display:flex;align-items:center;gap:8px;">
+        <span>GitHub 画像</span>
+        {% set v = github.verified %}
+        {% if v in ('verified_link', 'verified_email') %}
+          <span class="gh-badge gh-verified">✓ 已验证{{ '·反链' if v == 'verified_link' else '·邮箱' }}</span>
+        {% elif v == 'llm_confirmed' %}
+          <span class="gh-badge gh-llm">AI 确认</span>
+        {% elif v == 'uncertain' %}
+          <span class="gh-badge gh-uncertain">待复核</span>
+        {% elif v == 'rejected' %}
+          <span class="gh-badge gh-rejected">已排除</span>
+        {% endif %}
+        <span style="margin-left:auto;font-size:0.66rem;color:var(--text-tertiary);text-transform:none;letter-spacing:0;">抓取于 {{ github.fetched_at }}</span>
+      </div>
+      <div class="card-body">
+        <div class="gh-meta">
+          {% if github.profile.name %}<span><strong>{{ github.profile.name }}</strong></span>{% endif %}
+          {% if github.profile.company %}<span>{{ github.profile.company }}</span>{% endif %}
+          {% if github.profile.location %}<span>{{ github.profile.location }}</span>{% endif %}
+          <span>{{ github.profile.followers or 0 }} followers · {{ github.profile.public_repos or 0 }} repos</span>
+        </div>
+        {% if github.profile.bio %}
+        <div class="gh-bio">{{ github.profile.bio }}</div>
+        {% endif %}
+        {% if github.summary %}
+        <div class="gh-summary">{{ github.summary }}</div>
+        {% endif %}
+        {% if github.languages %}
+        <div style="margin: 8px 0 2px;">
+          {% for lang in github.languages %}<span class="gh-lang">{{ lang }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        {% if github.repos %}
+        <div class="gh-block-label">代表项目</div>
+        {% for r in github.repos %}
+        <div class="gh-repo">
+          <div class="gh-repo-head">
+            <span class="gh-repo-name">{{ r.name }}</span>
+            {% if r.stars %}<span class="gh-repo-stars">★ {{ r.stars }}</span>{% endif %}
+            {% if r.language %}<span class="gh-repo-lang">{{ r.language }}</span>{% endif %}
+            <span class="gh-repo-date">{{ r.pushed_at[:7] }}</span>
+          </div>
+          {% if r.description %}<div class="gh-repo-desc">{{ r.description }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% if github.homepage_url %}
+        <div class="gh-block-label">个人主页</div>
+        <a href="{{ github.homepage_url }}" target="_blank" style="font-size:0.8rem;color:var(--accent);word-break:break-all;">{{ github.homepage_url }}</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="card">
       <div class="section-label">LinkedIn 补充</div>
@@ -984,6 +1230,115 @@
       setTimeout(() => btn.textContent = '复制', 2000);
     });
   }
+
+  // ── 研究方向词云 ──
+  function renderWordcloud() {
+    const dataEl = document.getElementById('wc-data');
+    const box = document.getElementById('wordcloud');
+    if (!dataEl || !box || typeof d3 === 'undefined' || !d3.layout || !d3.layout.cloud) return;
+    let words = JSON.parse(dataEl.textContent);
+    if (!words.length) { box.style.display = 'none'; return; }
+    const W = box.clientWidth || 360, H = 168;
+    const maxW = d3.max(words, d => d.weight), minW = d3.min(words, d => d.weight);
+    const size = d3.scaleLinear().domain([minW, maxW]).range([13, 30]);
+    // 低饱和多彩调色板（柔和，不刺眼）
+    const palette = ['#6f93bf','#c08a7e','#85a585','#b196bd','#cdb079','#7aa6a0','#bd8497','#9890bb','#c79a6b','#8aa8c4'];
+    words = words.sort((a,b)=>b.weight-a.weight)
+      .map((d,i) => ({ text: d.text, size: size(d.weight), weight: d.weight, color: palette[i % palette.length] }));
+    d3.layout.cloud().size([W, H]).words(words).padding(3.5)
+      .rotate(() => (Math.random() < 0.16 ? -90 : 0))
+      .font("'DM Sans', sans-serif").fontWeight(700).fontSize(d => d.size)
+      .on('end', words => {
+        const svg = d3.select(box).append('svg').attr('width', W).attr('height', H)
+          .append('g').attr('transform', `translate(${W/2},${H/2})`);
+        svg.selectAll('text').data(words).join('text')
+          .style('font-size', d => d.size + 'px')
+          .style('fill', d => d.color)
+          .attr('text-anchor', 'middle')
+          .attr('transform', d => `translate(${d.x},${d.y})rotate(${d.rotate})`)
+          .style('fill-opacity', 0)
+          .text(d => d.text)
+          .on('mouseenter', function(){ d3.select(this).transition().duration(150).style('font-size', d=>d.size*1.12+'px'); })
+          .on('mouseleave', function(){ d3.select(this).transition().duration(150).style('font-size', d=>d.size+'px'); })
+          .transition().delay((d,i) => i * 30).duration(520).style('fill-opacity', 1);
+      }).start();
+  }
+  renderWordcloud();
+
+  // ── 关系网络图（静态力导向，重要节点常显名字）──
+  async function renderNetwork() {
+    const el = document.getElementById('net-graph');
+    if (!el || typeof d3 === 'undefined') return;
+    let data;
+    try { data = await (await fetch(`/api/people/${el.dataset.pid}/graph`)).json(); } catch (e) { return; }
+    if (!data.nodes || data.nodes.length < 2) { el.style.display = 'none'; return; }
+
+    const W = el.clientWidth, H = 400;
+    const tip = document.getElementById('net-tip');
+    const REL = data.rel_label || {};
+    const isAdvisor = d => ['advisor','co-advisor','supervisor','mentor'].includes(d.rel);
+    // 重要节点 = 本人 / 导师mentor / 库内已有的人 → 名字默认常显
+    const isKey = d => d.rel==='self' || isAdvisor(d) || d.in_db;
+    const color = d => d.rel==='self' ? '#c0392b' : (isAdvisor(d) ? '#d4a843' : (d.in_db ? '#4a7fb5' : '#d2d5db'));
+    const radius = d => d.rel==='self' ? 13 : (isAdvisor(d) ? 8 : (d.in_db ? 7 : 4));
+
+    const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
+    const defs = svg.append('defs');
+    const f = defs.append('filter').attr('id','glow').attr('x','-60%').attr('y','-60%').attr('width','220%').attr('height','220%');
+    f.append('feGaussianBlur').attr('stdDeviation',2.4).attr('result','b');
+    const fm = f.append('feMerge'); fm.append('feMergeNode').attr('in','b'); fm.append('feMergeNode').attr('in','SourceGraphic');
+
+    const link = svg.append('g').selectAll('line').data(data.links).join('line')
+      .attr('class', l => 'link' + (l.peer ? ' peer' : '') + (isAdvisor({rel:l.rel}) ? ' advisor' : ''));
+    const node = svg.append('g').selectAll('g').data(data.nodes).join('g').attr('class','node')
+      .style('cursor', d => (d.pid && d.rel!=='self') ? 'pointer' : 'default')
+      .call(d3.drag()
+        .on('start',(e,d)=>{ if(!e.active) sim.alphaTarget(0.2).restart(); d.fx=d.x; d.fy=d.y; })
+        .on('drag',(e,d)=>{ d.fx=e.x; d.fy=e.y; })
+        .on('end',(e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }));
+
+    node.append('circle').attr('r', radius).attr('fill', color)
+      .attr('stroke', d => d.rel==='self'?'#a83224':(isAdvisor(d)?'#c79a30':(d.in_db?'#3a6a9b':'#c0c3ca')))
+      .attr('stroke-width', d => d.rel==='self'?2.2:1.3)
+      .attr('filter', d => (d.rel==='self'||isAdvisor(d)) ? 'url(#glow)' : null);
+    node.append('text').attr('x', d => radius(d)+4).attr('dy','0.32em')
+      .attr('font-weight', d => d.rel==='self'?700:500)
+      .attr('fill', d => isAdvisor(d) ? '#9a7b1e' : '#444')
+      .attr('fill-opacity', d => isKey(d) ? 1 : 0)
+      .text(d => d.name.length>16 ? d.name.slice(0,15)+'…' : d.name);
+
+    // 重要节点碰撞半径按名字长度撑开，减少标签重叠
+    const collideR = d => isKey(d) ? Math.max(radius(d)+8, d.name.length*3.4) : radius(d)+4;
+    const sim = d3.forceSimulation(data.nodes)
+      .force('link', d3.forceLink(data.links).id(d=>d.id)
+        .distance(l => l.peer ? 46 : 78).strength(l => l.peer ? 0.08 : 0.5))
+      .force('charge', d3.forceManyBody().strength(-170))
+      .force('center', d3.forceCenter(W/2, H/2))
+      .force('collide', d3.forceCollide().radius(collideR).iterations(2))
+      // 导师上方、本人居中：弱垂直定位增加可读性
+      .force('y', d3.forceY(d => isAdvisor(d) ? H*0.22 : (d.rel==='self' ? H*0.5 : H*0.62)).strength(d => isAdvisor(d)?0.25:0.05))
+      .force('x', d3.forceX(W/2).strength(0.04));
+
+    const adj = id => { const s=new Set([id]); data.links.forEach(l=>{const a=l.source.id,b=l.target.id; if(a===id)s.add(b); if(b===id)s.add(a);}); return s; };
+    node.on('mouseenter', (e,d) => {
+        const A = adj(d.id), rl = REL[d.rel]||d.rel;
+        tip.innerHTML = d.rel==='self' ? `<b>${d.name}</b> · ${d.aff||''}`
+          : `<b>${d.name}</b> · ${rl}${d.in_db?' · 库内':' · 待补'}${d.context?' · '+d.context:''}`;
+        node.style('opacity', n => A.has(n.id)?1:0.18);
+        node.selectAll('text').attr('fill-opacity', n => A.has(n.id)?1:(isKey(n)?0.15:0));
+        link.attr('stroke-opacity', l => (l.source.id===d.id||l.target.id===d.id)?0.95:0.06);
+      })
+      .on('mouseleave', () => { tip.innerHTML=''; node.style('opacity',1);
+        node.selectAll('text').attr('fill-opacity', n => isKey(n)?1:0); link.attr('stroke-opacity', null); })
+      .on('click', (e,d) => { if (d.pid && d.rel!=='self') window.location='/pool/'+d.pid; });
+
+    sim.on('tick', () => {
+      data.nodes.forEach(d => { d.x=Math.max(radius(d), Math.min(W-radius(d), d.x)); d.y=Math.max(radius(d), Math.min(H-radius(d), d.y)); });
+      link.attr('x1',l=>l.source.x).attr('y1',l=>l.source.y).attr('x2',l=>l.target.x).attr('y2',l=>l.target.y);
+      node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+  }
+  renderNetwork();
 </script>
 
 </body>

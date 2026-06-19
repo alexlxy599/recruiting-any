@@ -491,7 +491,7 @@
           <button class="mode-btn active" onclick="switchMode('csrankings', this)">CSRankings Search</button>
           <button class="mode-btn" onclick="switchMode('smart', this)">Smart Search</button>
           <button class="mode-btn" onclick="switchMode('dept', this)">Department Page</button>
-          <button class="mode-btn" onclick="switchMode('conference', this)">Conference Papers</button>
+          <button class="mode-btn" onclick="switchMode('conference', this)">Conference Sourcing</button>
           <button class="mode-btn" onclick="switchMode('manual', this)">Manual Input</button>
         </div>
       </div>
@@ -619,22 +619,157 @@
       </div>
     </div>
 
-    <!-- ── Conference Papers Mode ── -->
+    <!-- ── Conference Sourcing Mode ── -->
     <div id="panel-conference" class="card" style="display:none;">
-      <div class="card-header">Conference Papers</div>
+      <div class="card-header">Conference Sourcing</div>
       <div class="card-body">
-        <div class="coming-soon" style="text-align:center;padding:32px 16px;">
-          <div style="font-size:2rem;margin-bottom:12px;opacity:0.3;">&#128218;</div>
-          <div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);margin-bottom:8px;">Coming Soon</div>
-          <p style="color:var(--text-tertiary);font-size:0.8rem;max-width:400px;margin:0 auto;line-height:1.5;">
-            Upload a conference paper list (NeurIPS, ICML, ICLR, ACL, CVPR...) or paste a proceedings URL to automatically identify first-author PhD students and postdocs as potential candidates.
-          </p>
-          <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
-            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">NeurIPS 2025</span>
-            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">ICML 2025</span>
-            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">ICLR 2025</span>
-            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">ACL 2025</span>
-            <span style="padding:3px 10px;border-radius:4px;font-size:0.72rem;background:var(--tag-bg);color:var(--tag-text);">CVPR 2025</span>
+        <!-- Data Source Tabs -->
+        <div class="form-row">
+          <label class="form-label">DATA SOURCE</label>
+          <div class="preset-group" id="conf-source-group">
+            <button class="preset-btn active" onclick="setConfSource('upload', this)">Upload File</button>
+            <button class="preset-btn" onclick="setConfSource('openreview', this)">OpenReview</button>
+          </div>
+        </div>
+
+        <!-- Upload Source -->
+        <div id="conf-upload-panel">
+          <div class="form-row" style="margin-top:8px;">
+            <label class="form-label">Paper Digest JSON or CSV</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="file" id="conf-file" accept=".json,.csv" style="font-size:0.82rem;" />
+              <button class="btn btn-primary" id="btn-conf-upload" onclick="uploadConferencePapers()">Upload</button>
+            </div>
+            <div id="conf-upload-info" style="font-size:0.78rem;color:var(--text-tertiary);margin-top:4px;"></div>
+          </div>
+        </div>
+
+        <!-- OpenReview Source -->
+        <div id="conf-openreview-panel" style="display:none;">
+          <div class="form-row" style="margin-top:8px;">
+            <label class="form-label">Conference</label>
+            <div class="preset-group" id="conf-venue-group">
+              <button class="preset-btn active" onclick="setConfVenue('ICLR', this)">ICLR</button>
+              <button class="preset-btn" onclick="setConfVenue('NeurIPS', this)">NeurIPS</button>
+              <button class="preset-btn" onclick="setConfVenue('ICML', this)">ICML</button>
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:8px;">
+            <label class="form-label">Year</label>
+            <select id="conf-year" style="width:120px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;background:#fff;">
+              <option value="2026">2026</option>
+              <option value="2025" selected>2025</option>
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-top:8px;">
+            <label class="form-label">Paper Tier</label>
+            <div style="display:flex;gap:14px;">
+              <label style="font-size:0.84rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="conf-tier-oral" checked style="width:15px;height:15px;" /> Oral
+              </label>
+              <label style="font-size:0.84rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="conf-tier-spotlight" checked style="width:15px;height:15px;" /> Spotlight
+              </label>
+              <label style="font-size:0.84rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="conf-tier-poster" style="width:15px;height:15px;" /> Poster
+              </label>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-conf-fetch" onclick="fetchConferencePapers()">Fetch Papers</button>
+          </div>
+        </div>
+
+        <!-- Pipeline Steps (shown after papers loaded) -->
+        <div id="conf-pipeline" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+          <div id="conf-stats-bar" style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap;">
+            <span id="conf-stat-total" style="font-size:0.82rem;color:var(--text-secondary);">0 papers loaded</span>
+          </div>
+
+          <!-- Step 1: Chinese Filter -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <button class="btn btn-primary" id="btn-conf-filter" onclick="runChineseFilter()">Filter Chinese Authors</button>
+            <span id="conf-filter-result" style="font-size:0.8rem;color:var(--text-tertiary);"></span>
+          </div>
+
+          <!-- Step 2: arXiv Enrich -->
+          <div id="conf-enrich-row" style="display:none;align-items:center;gap:8px;margin-bottom:10px;">
+            <button class="btn btn-primary" id="btn-conf-enrich" onclick="runArxivEnrich()">arXiv Enrich</button>
+            <span style="font-size:0.78rem;color:var(--text-tertiary);">Parse institution + email from arXiv HTML (slow, ~4s/paper)</span>
+          </div>
+
+          <!-- OpenReview Profile Fetch (for OpenReview source) -->
+          <div id="conf-or-profile-row" style="display:none;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <button class="btn btn-primary" id="btn-conf-authors" onclick="fetchConferenceAuthors()">Fetch Author Profiles</button>
+              <span id="conf-selected-count" style="font-size:0.8rem;color:var(--text-tertiary);"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Classified Results -->
+        <div id="conf-results-wrap" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div class="preset-group" id="conf-class-tabs">
+              <button class="preset-btn active" onclick="setConfClassTab('industry', this)">
+                Industry <span id="conf-count-industry" style="font-size:0.72rem;opacity:0.7;"></span>
+              </button>
+              <button class="preset-btn" onclick="setConfClassTab('academic', this)">
+                Academic <span id="conf-count-academic" style="font-size:0.72rem;opacity:0.7;"></span>
+              </button>
+              <button class="preset-btn" onclick="setConfClassTab('unknown', this)">
+                Unknown <span id="conf-count-unknown" style="font-size:0.72rem;opacity:0.7;"></span>
+              </button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="text" id="conf-result-filter" placeholder="Filter..." oninput="filterConfResults()"
+                style="width:180px;font-size:0.8rem;padding:5px 10px;border:1px solid var(--border);border-radius:6px;" />
+              <button class="btn btn-secondary" onclick="exportConfCSV()">Export CSV</button>
+              <button class="btn btn-primary" onclick="importConfToPool()">Import to Pool</button>
+            </div>
+          </div>
+          <div class="table-wrap" style="max-height:500px;overflow-y:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:36px;"><input type="checkbox" id="conf-result-select-all" onchange="toggleAllConfResults(this.checked)" checked /></th>
+                  <th>Name</th>
+                  <th>Institution</th>
+                  <th>Email</th>
+                  <th style="width:60px;">Papers</th>
+                  <th style="width:90px;">Source</th>
+                </tr>
+              </thead>
+              <tbody id="conf-results-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Paper list (for OpenReview source, before profile fetch) -->
+        <div id="conf-papers-wrap" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:4px;">
+            <div id="conf-papers-count" class="results-count"></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="text" id="conf-filter" placeholder="Filter by title or author..." oninput="filterConfPapers()"
+                style="width:220px;font-size:0.8rem;padding:5px 10px;border:1px solid var(--border);border-radius:6px;" />
+              <button class="btn btn-secondary" onclick="toggleAllConfPapers(true)">Select All</button>
+              <button class="btn btn-secondary" onclick="toggleAllConfPapers(false)">Select None</button>
+            </div>
+          </div>
+          <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:36px;"><input type="checkbox" id="conf-select-all" onchange="toggleAllConfPapers(this.checked)" checked /></th>
+                  <th>Title</th>
+                  <th>First Author</th>
+                  <th style="width:80px;">Tier</th>
+                </tr>
+              </thead>
+              <tbody id="conf-papers-tbody"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1273,6 +1408,432 @@ async function startBatchFastScrape() {
 }
 
 // ─────────────────────────────────────────
+// Conference Sourcing
+// ─────────────────────────────────────────
+let confVenue = 'ICLR';
+let confSource = 'upload';
+let confPapers = [];
+let confFilteredPapers = [];
+let confResults = { industry: [], academic: [], unknown: [] };
+let confCurrentTab = 'industry';
+
+function setConfSource(source, btn) {
+  confSource = source;
+  document.querySelectorAll('#conf-source-group .preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('conf-upload-panel').style.display = source === 'upload' ? 'block' : 'none';
+  document.getElementById('conf-openreview-panel').style.display = source === 'openreview' ? 'block' : 'none';
+}
+
+function setConfVenue(venue, btn) {
+  confVenue = venue;
+  document.querySelectorAll('#conf-venue-group .preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Upload Paper Digest file ──
+async function uploadConferencePapers() {
+  const fileInput = document.getElementById('conf-file');
+  if (!fileInput.files.length) { alert('Select a file first.'); return; }
+
+  const btn = document.getElementById('btn-conf-upload');
+  btn.disabled = true;
+  btn.textContent = 'Uploading...';
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  try {
+    const res = await fetch('/api/conference/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+    confPapers = []; // papers are stored server-side
+    document.getElementById('conf-upload-info').textContent = data.message;
+    document.getElementById('conf-pipeline').style.display = 'block';
+    document.getElementById('conf-stat-total').textContent = `${data.total} papers loaded`;
+    document.getElementById('conf-filter-result').textContent = '';
+    document.getElementById('conf-results-wrap').style.display = 'none';
+    document.getElementById('conf-enrich-row').style.display = 'none';
+    showProgressCard();
+    logEntry(data.message);
+    setProgress(100, 'Papers loaded');
+  } catch(e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Upload';
+  }
+}
+
+// ── Fetch from OpenReview ──
+async function fetchConferencePapers() {
+  const year = parseInt(document.getElementById('conf-year').value);
+  const tiers = [];
+  if (document.getElementById('conf-tier-oral').checked) tiers.push('Oral');
+  if (document.getElementById('conf-tier-spotlight').checked) tiers.push('Spotlight');
+  if (document.getElementById('conf-tier-poster').checked) tiers.push('Poster');
+
+  if (!tiers.length) { alert('Select at least one paper tier.'); return; }
+
+  const btn = document.getElementById('btn-conf-fetch');
+  btn.disabled = true;
+  btn.textContent = 'Fetching...';
+  showProgressCard();
+  confPapers = [];
+  document.getElementById('conf-papers-wrap').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/conference/papers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ venue: confVenue, year, tiers })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(6).trim()); } catch { continue; }
+
+        if (evt.type === 'progress') {
+          logEntry(evt.message);
+          setProgress(50, evt.message);
+        } else if (evt.type === 'papers') {
+          confPapers = evt.data || [];
+          confFilteredPapers = confPapers;
+          renderConfPapers(confFilteredPapers);
+          document.getElementById('conf-papers-wrap').style.display = 'block';
+          // Show pipeline steps
+          document.getElementById('conf-pipeline').style.display = 'block';
+          document.getElementById('conf-stat-total').textContent = `${confPapers.length} papers loaded`;
+          // Show profile fetch button for OpenReview
+          document.getElementById('conf-or-profile-row').style.display = 'block';
+        } else if (evt.type === 'done') {
+          setProgress(100, evt.message);
+          logEntry(evt.message);
+        }
+      }
+    }
+  } catch(e) {
+    logEntry(`Fetch failed: ${e.message}`, 'log-error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Fetch Papers';
+  }
+}
+
+// ── Chinese surname filter ──
+async function runChineseFilter() {
+  const btn = document.getElementById('btn-conf-filter');
+  btn.disabled = true;
+  btn.textContent = 'Filtering...';
+
+  try {
+    const res = await fetch('/api/conference/filter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Filter failed');
+
+    const msg = `${data.chinese_papers} / ${data.total_papers} papers have Chinese-surnamed authors`;
+    document.getElementById('conf-filter-result').textContent = msg;
+    logEntry(msg);
+
+    // Show enrich button
+    if (data.chinese_papers > 0) {
+      document.getElementById('conf-enrich-row').style.display = 'flex';
+    }
+  } catch(e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Filter Chinese Authors';
+  }
+}
+
+// ── arXiv enrichment (SSE) ──
+async function runArxivEnrich() {
+  const btn = document.getElementById('btn-conf-enrich');
+  btn.disabled = true;
+  btn.textContent = 'Enriching...';
+  showProgressCard();
+
+  try {
+    const res = await fetch('/api/conference/enrich', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(6).trim()); } catch { continue; }
+
+        if (evt.type === 'progress') {
+          const pct = evt.total > 0 ? Math.round((evt.current / evt.total) * 100) : 0;
+          setProgress(pct, evt.message || `${evt.current} / ${evt.total}`);
+          if (evt.message) logEntry(evt.message);
+        } else if (evt.type === 'log') {
+          logEntry(evt.message, evt.level === 'error' ? 'log-error' : evt.level === 'warn' ? 'log-warn' : '');
+        } else if (evt.type === 'results') {
+          confResults = evt.data || { industry: [], academic: [], unknown: [] };
+          renderConfResults();
+        } else if (evt.type === 'done') {
+          setProgress(100, evt.message || 'Complete');
+          if (evt.message) logEntry(evt.message);
+        }
+      }
+    }
+  } catch(e) {
+    logEntry(`Enrichment failed: ${e.message}`, 'log-error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'arXiv Enrich';
+  }
+}
+
+// ── Classified results rendering ──
+function setConfClassTab(tab, btn) {
+  confCurrentTab = tab;
+  document.querySelectorAll('#conf-class-tabs .preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderConfResultsTable();
+}
+
+function renderConfResults() {
+  const stats = confResults.stats || {};
+  document.getElementById('conf-count-industry').textContent = `(${stats.industry_count || 0})`;
+  document.getElementById('conf-count-academic').textContent = `(${stats.academic_count || 0})`;
+  document.getElementById('conf-count-unknown').textContent = `(${stats.unknown_count || 0})`;
+  document.getElementById('conf-results-wrap').style.display = 'block';
+  renderConfResultsTable();
+}
+
+function renderConfResultsTable() {
+  const list = confResults[confCurrentTab] || [];
+  const q = (document.getElementById('conf-result-filter').value || '').toLowerCase();
+  const filtered = q ? list.filter(m =>
+    m.name.toLowerCase().includes(q) ||
+    (m.institution || '').toLowerCase().includes(q) ||
+    (m.email || '').toLowerCase().includes(q)
+  ) : list;
+
+  const tbody = document.getElementById('conf-results-tbody');
+  const srcColors = { 'arxiv_html': '#389e0d', 'paperdigest': '#1677ff', 'none': '#999' };
+  tbody.innerHTML = filtered.map((m, i) => {
+    const srcColor = srcColors[m.source] || '#999';
+    const srcLabel = m.source === 'arxiv_html' ? 'arXiv' : m.source === 'paperdigest' ? 'PaperDigest' : m.source || '—';
+    return `<tr>
+      <td><input type="checkbox" class="conf-result-cb" data-idx="${i}" checked /></td>
+      <td style="font-size:0.82rem;font-weight:500;">${m.name}</td>
+      <td style="font-size:0.8rem;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(m.institution||'').replace(/"/g,'&quot;')}">${m.institution || '—'}</td>
+      <td style="font-size:0.8rem;">${m.email ? `<a href="mailto:${m.email}">${m.email}</a>` : '—'}</td>
+      <td style="font-size:0.8rem;text-align:center;">${m.paper_count || 0}</td>
+      <td><span style="padding:2px 6px;border-radius:3px;font-size:0.7rem;color:#fff;background:${srcColor};">${srcLabel}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterConfResults() {
+  renderConfResultsTable();
+}
+
+function toggleAllConfResults(checked) {
+  document.querySelectorAll('.conf-result-cb').forEach(cb => cb.checked = checked);
+}
+
+function exportConfCSV() {
+  const list = confResults[confCurrentTab] || [];
+  if (!list.length) { alert('No data to export.'); return; }
+
+  const headers = ['Name', 'Institution', 'Email', 'Classification', 'Paper Count', 'Papers', 'Source'];
+  const rows = list.map(m => [
+    m.name,
+    m.institution || '',
+    m.email || '',
+    m.classification || confCurrentTab,
+    m.paper_count || 0,
+    (m.papers || []).map(p => p.title).join('; '),
+    m.source || '',
+  ]);
+  const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `conference_${confCurrentTab}_candidates.csv`;
+  a.click();
+}
+
+function importConfToPool() {
+  const selected = [];
+  document.querySelectorAll('.conf-result-cb:checked').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    const list = confResults[confCurrentTab] || [];
+    if (list[idx]) selected.push(list[idx]);
+  });
+  if (!selected.length) { alert('No candidates selected.'); return; }
+
+  // Convert to discoveredMembers format and use shared import
+  const members = selected.map(m => ({
+    name: m.name,
+    role: m.role || 'Other',
+    email: m.email || '',
+    research_area: m.research_area || (m.papers && m.papers[0] ? m.papers[0].title : ''),
+    personal_page: m.personal_page || '',
+    expected_graduation: null,
+    institution: m.institution || '',
+    advisor: '',
+    source: `Conference ${confCurrentTab}: ${m.papers ? m.papers.length : 0} papers`,
+  }));
+
+  // Feed into shared results table for import
+  resetResults();
+  members.forEach(m => appendMember(m));
+  logEntry(`${members.length} ${confCurrentTab} candidates ready for import`);
+}
+
+// ── OpenReview paper list (kept for OpenReview source) ──
+function renderConfPapers(papers) {
+  const tbody = document.getElementById('conf-papers-tbody');
+  const tierColors = { 'Oral': '#d4380d', 'Spotlight': '#d46b08', 'Poster': '#7c7c7c' };
+  tbody.innerHTML = papers.map((p, i) => {
+    const author = p.authors && p.authors[0] ? p.authors[0] : '—';
+    const tier = p.venue_tier || '';
+    const color = tierColors[tier] || '#7c7c7c';
+    return `<tr>
+      <td><input type="checkbox" class="conf-paper-cb" data-idx="${i}" checked onchange="updateConfSelectedCount()" /></td>
+      <td style="font-size:0.8rem;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.title.replace(/"/g, '&quot;')}">${p.title}</td>
+      <td style="font-size:0.8rem;white-space:nowrap;">${author}</td>
+      <td><span style="padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:500;color:#fff;background:${color};">${tier}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('conf-papers-count').textContent = `${papers.length} papers`;
+  updateConfSelectedCount();
+}
+
+function filterConfPapers() {
+  const q = document.getElementById('conf-filter').value.toLowerCase();
+  if (!q) {
+    confFilteredPapers = confPapers;
+  } else {
+    confFilteredPapers = confPapers.filter(p =>
+      p.title.toLowerCase().includes(q) ||
+      (p.authors[0] || '').toLowerCase().includes(q)
+    );
+  }
+  renderConfPapers(confFilteredPapers);
+}
+
+function toggleAllConfPapers(checked) {
+  document.querySelectorAll('.conf-paper-cb').forEach(cb => cb.checked = checked);
+  const selectAllCb = document.getElementById('conf-select-all');
+  if (selectAllCb) selectAllCb.checked = checked;
+  updateConfSelectedCount();
+}
+
+function updateConfSelectedCount() {
+  const total = document.querySelectorAll('.conf-paper-cb').length;
+  const selected = document.querySelectorAll('.conf-paper-cb:checked').length;
+  const el = document.getElementById('conf-selected-count');
+  if (el) el.textContent = `${selected} of ${total} selected`;
+}
+
+function getSelectedConfPapers() {
+  const selected = [];
+  document.querySelectorAll('.conf-paper-cb:checked').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    if (confFilteredPapers[idx]) selected.push(confFilteredPapers[idx]);
+  });
+  return selected;
+}
+
+async function fetchConferenceAuthors() {
+  const selected = getSelectedConfPapers();
+  if (!selected.length) { alert('No papers selected.'); return; }
+
+  const btn = document.getElementById('btn-conf-authors');
+  btn.disabled = true;
+  btn.textContent = 'Fetching profiles...';
+  showProgressCard();
+  resetResults();
+
+  const year = document.getElementById('conf-year').value;
+  const venueLabel = `${confVenue} ${year}`;
+
+  try {
+    const res = await fetch('/api/conference/authors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ papers: selected, venue_label: venueLabel })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(6).trim()); } catch { continue; }
+
+        if (evt.type === 'progress') {
+          const pct = evt.total > 0 ? Math.round((evt.current / evt.total) * 100) : 0;
+          setProgress(pct, evt.message || `${evt.current} / ${evt.total}`);
+          if (evt.message) logEntry(evt.message);
+        } else if (evt.type === 'members') {
+          (evt.data || []).forEach(m => appendMember(m));
+        } else if (evt.type === 'log') {
+          logEntry(evt.message, evt.level === 'error' ? 'log-error' : evt.level === 'warn' ? 'log-warn' : '');
+        } else if (evt.type === 'done') {
+          setProgress(100, evt.message || 'Complete');
+          if (evt.message) logEntry(evt.message);
+        }
+      }
+    }
+  } catch(e) {
+    logEntry(`Author fetch failed: ${e.message}`, 'log-error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Fetch Author Profiles';
+  }
+}
+
+// ─────────────────────────────────────────
 // Smart Search: Single-professor fast scrape
 // ─────────────────────────────────────────
 async function startSmartScrape() {
@@ -1527,7 +2088,13 @@ async function importToTalentPool() {
     const res = await fetch('/api/lab-sourcer/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ members: discoveredMembers, institution: (document.getElementById('inst-input')?.value || '').trim() })
+      body: JSON.stringify({
+        members: discoveredMembers,
+        institution: (document.getElementById('inst-input')?.value || '').trim(),
+        tags: currentMode === 'conference'
+          ? [`${confVenue} ${document.getElementById('conf-year')?.value || ''}`]
+          : []
+      })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     const data = await res.json();

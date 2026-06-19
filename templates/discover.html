@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>向外发现 · {{ d.seed_name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf9f7; --surface: #fff; --border: #ece9e4; --border-lt: #f4f2ee;
+      --text: #1c1b19; --text-2: #6b6862; --text-3: #a9a59d;
+      --accent: #c0392b; --blue: #4a7fb5; --gold: #c79a3a; --green: #5a8a6a;
+      --font: 'DM Sans', sans-serif; --mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 16px 36px 80px; }
+    .nav a { font-size: 0.8rem; color: var(--text-3); text-decoration: none; }
+    .nav a:hover { color: var(--accent); }
+
+    /* hero with seed → discovery visual */
+    .hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .eyebrow { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+    .hero h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; margin: 10px 0 8px; }
+    .seed-chip { display: inline-flex; align-items: center; gap: 7px; background: var(--accent); color: #fff;
+      padding: 3px 12px 3px 4px; border-radius: 999px; font-size: 0.95rem; font-weight: 600; vertical-align: middle; }
+    .seed-chip .av { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.25);
+      display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; }
+    .hero .sub { font-size: 0.88rem; color: var(--text-2); line-height: 1.55; max-width: 680px; }
+    .hero .meta { font-size: 0.73rem; color: var(--text-3); margin-top: 12px; font-family: var(--mono); }
+    .hero .meta b { color: var(--accent); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 13px; padding: 16px 17px;
+      display: flex; flex-direction: column; transition: box-shadow .15s, transform .15s, border-color .15s; }
+    .card:hover { box-shadow: 0 10px 26px rgba(40,30,20,0.08); transform: translateY(-2px); border-color: #ddd8d0; }
+    .ct { display: flex; align-items: flex-start; gap: 12px; }
+    .av2 { width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0; color: #fff; font-weight: 700;
+      font-size: 0.92rem; display: flex; align-items: center; justify-content: center; }
+    .nm { font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+    .nm a { color: inherit; text-decoration: none; }
+    .nm a:hover { color: var(--accent); }
+    .aff { font-size: 0.76rem; color: var(--text-3); margin-top: 2px; }
+    .metricbar { margin-left: auto; text-align: right; flex-shrink: 0; }
+    .hidx { font-family: var(--mono); font-weight: 600; font-size: 1.05rem; }
+    .hidx span { color: var(--gold); }
+    .citn { font-size: 0.68rem; color: var(--text-3); }
+
+    .block { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border-lt); }
+    .block .lbl { font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-3); margin-bottom: 3px; }
+    .block .txt { font-size: 0.79rem; color: var(--text-2); line-height: 1.45; }
+    .block .txt.paper { font-style: italic; color: var(--text); }
+    .conn { font-size: 0.78rem; color: var(--text-2); line-height: 1.45; }
+    .conn b { color: var(--accent); font-weight: 600; }
+    .scorebar-wrap { display: flex; align-items: center; gap: 8px; margin-top: 13px; }
+    .scorebar { height: 4px; background: linear-gradient(90deg, #e0b9b2, var(--accent)); border-radius: 3px; }
+    .scoreval { font-family: var(--mono); font-size: 0.66rem; color: var(--text-3); }
+    .rank-badge { position: absolute; }
+
+    .note { font-size: 0.78rem; color: var(--text-3); margin-top: 26px; line-height: 1.6;
+      background: #f6f4f0; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav"><a href="/pool/{{ d.seed_id }}">← 返回 {{ d.seed_name }} 档案</a></div>
+
+  {% set colors = ['#c0392b','#4a7fb5','#5a8a6a','#c79a3a','#8a6aaf','#3a8a8a','#b5683a'] %}
+  <div class="hero">
+    <div class="eyebrow">Outward Discovery · 引用扩张</div>
+    <h1>从
+      <span class="seed-chip"><span class="av">{{ d.seed_name[0] }}</span>{{ d.seed_name }}</span>
+      出发，发现库外的同行
+    </h1>
+    <div class="sub">以这位候选人为探针，顺着「谁在引用他的工作」伸进全球学术图，找出在同一研究脉络上、自身有影响力、却还不在你人才库里的人。每张卡片展示：<b>他是谁</b> · <b>他引用之后在做什么</b> · <b>与种子的连接强度</b>。</div>
+    <div class="meta">种子 {{ d.seed_aff }} · 共发现 <b>{{ d.total }}</b> 位库外候选 · 按「引用深度 × 自身影响力」排序</div>
+  </div>
+
+  {% set maxs = d.candidates[0].score if d.candidates else 1 %}
+  <div class="grid">
+    {% for c in d.candidates[:24] %}
+    <div class="card">
+      <div class="ct">
+        <div class="av2" style="background: {{ colors[loop.index0 % 7] }};">{{ c.name[0] }}</div>
+        <div style="min-width:0;">
+          <div class="nm"><a href="https://www.semanticscholar.org/search?q={{ c.name|urlencode }}" target="_blank">{{ c.name }}</a></div>
+          {% if c.aff %}<div class="aff">{{ c.aff }}</div>{% endif %}
+        </div>
+        <div class="metricbar">
+          <div class="hidx">h<span>{{ c.h }}</span></div>
+          <div class="citn">{{ '{:,}'.format(c.cit) }} 引用</div>
+        </div>
+      </div>
+
+      {% if c.rep %}
+      <div class="block">
+        <div class="lbl">他的背景 · 代表作</div>
+        <div class="txt paper">{{ c.rep[:95] }}</div>
+      </div>
+      {% endif %}
+
+      <div class="block">
+        <div class="lbl">{% if c.ctx %}引用 {{ d.seed_name }} 之后在做{% else %}与种子的连接{% endif %}</div>
+        {% if c.ctx %}<div class="txt paper">{{ c.ctx[:95] }}</div>{% endif %}
+        <div class="conn" style="margin-top:5px;">
+          引用种子 <b>{{ c.cites }}</b> 次{% if c.infl %}，<b>{{ c.infl }} 次深度引用</b>{% endif %}，跨 {{ c.papers|length }} 篇工作
+        </div>
+      </div>
+
+      <div class="scorebar-wrap">
+        <div class="scorebar" style="width: {{ (c.score / maxs * 100)|round|int }}%; flex: 0 0 {{ (c.score / maxs * 100)|round|int }}%;"></div>
+        <span class="scoreval">匹配 {{ c.score|round|int }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="note">
+    <b>「由点到面」的向外发现</b>：系统不再只整合你已知的人，而是以高价值候选人为探针，伸进全球引用网络，找出你不知道、却在同一研究脉络上有分量的人。<b>深度引用</b> = Semantic Scholar 判定「真正在该工作基础上推进」（而非顺带提及），对应「在这条线上做了更深的事」。姓名可点击查其 Semantic Scholar 主页。
+  </div>
+</div>
+</body>
+</html>

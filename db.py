@@ -85,17 +85,23 @@ def init_db():
 
     # Add columns if not exist (safe migration)
     for col, typ in [("description", "TEXT"), ("location", "TEXT"),
-                     ("start_date", "TEXT"), ("end_date", "TEXT")]:
+                     ("start_date", "TEXT"), ("end_date", "TEXT"), ("source", "TEXT")]:
         try:
             conn.execute(f"ALTER TABLE experiences ADD COLUMN {col} {typ}")
         except sqlite3.OperationalError:
             pass  # column already exists
 
-    for col, typ in [("description", "TEXT"), ("activities", "TEXT")]:
+    for col, typ in [("description", "TEXT"), ("activities", "TEXT"), ("source", "TEXT")]:
         try:
             conn.execute(f"ALTER TABLE educations ADD COLUMN {col} {typ}")
         except sqlite3.OperationalError:
             pass
+
+    # 实验室归属（个人主页提取）
+    try:
+        conn.execute("ALTER TABLE people ADD COLUMN lab TEXT")
+    except sqlite3.OperationalError:
+        pass
 
     # Academic talent pool columns
     for col, typ in [("source_type", "TEXT"), ("advisor", "TEXT"),
@@ -106,8 +112,40 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
+    # GitHub 身份验证等级: verified_link / verified_email / llm_confirmed / uncertain / rejected / not_found
+    try:
+        conn.execute("ALTER TABLE people ADD COLUMN github_verified TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # 界别: academic / industry。与入口渠道(source_type)解耦——source_type 记录怎么进来的, sector 记录他是谁
+    try:
+        conn.execute("ALTER TABLE people ADD COLUMN sector TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # GitHub 画像摘要（LLM 从快照提取的衍生数据，可重跑覆盖）
+    try:
+        conn.execute("ALTER TABLE people ADD COLUMN github_summary TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     # Backfill: mark existing lab_sourcer imports as academic
     conn.execute("UPDATE people SET source_type='academic' WHERE notes='lab_sourcer' AND source_type IS NULL")
+
+    # 界别回填规则: 学术标记优先, 其次有公司即工业界
+    conn.execute("""
+        UPDATE people SET sector = 'academic' WHERE sector IS NULL AND (
+            source_type = 'academic'
+            OR (institution IS NOT NULL AND institution != '')
+            OR (advisor IS NOT NULL AND advisor != '')
+            OR company LIKE '%University%' OR company LIKE '%Institute of Technology%'
+            OR company LIKE '%College%' OR company LIKE '%Academy of Sciences%'
+            OR title LIKE '%PhD Student%' OR title LIKE '%Postdoc%' OR title LIKE '%Professor%'
+        )""")
+    conn.execute("""
+        UPDATE people SET sector = 'industry'
+        WHERE sector IS NULL AND company IS NOT NULL AND company != ''""")
 
     conn.executescript("""
     CREATE INDEX IF NOT EXISTS idx_people_company ON people(company);
@@ -116,6 +154,102 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_people_source_type ON people(source_type);
     CREATE INDEX IF NOT EXISTS idx_people_institution ON people(institution);
     CREATE INDEX IF NOT EXISTS idx_people_advisor ON people(advisor);
+
+    -- ── 标签系统 ──
+
+    CREATE TABLE IF NOT EXISTS tags (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        name      TEXT NOT NULL UNIQUE,
+        category  TEXT NOT NULL DEFAULT 'custom'
+    );
+
+    CREATE TABLE IF NOT EXISTS person_tags (
+        person_id  INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        tag_id     INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        source     TEXT NOT NULL DEFAULT 'manual',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (person_id, tag_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_person_tags_person ON person_tags(person_id);
+    CREATE INDEX IF NOT EXISTS idx_person_tags_tag ON person_tags(tag_id);
+    CREATE INDEX IF NOT EXISTS idx_tags_category ON tags(category);
+
+    -- ── 顶会发表记录："顶会"徽章由此表推导，支持按会议+年份筛选 ──
+
+    CREATE TABLE IF NOT EXISTS publications (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id   INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        venue       TEXT NOT NULL,            -- ICML / NeurIPS / ICLR / CVPR ...
+        year        INTEGER,
+        title       TEXT NOT NULL DEFAULT '',
+        is_first_author INTEGER NOT NULL DEFAULT 0,
+        source      TEXT NOT NULL DEFAULT '', -- conference_scraper / s2 / manual
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_publications_person ON publications(person_id);
+    CREATE INDEX IF NOT EXISTS idx_publications_venue ON publications(venue, year);
+    CREATE INDEX IF NOT EXISTS idx_people_sector ON people(sector);
+
+    -- ── 提取层：LLM 从快照提取的全量 JSON，带版本，宁可多不要少 ──
+
+    CREATE TABLE IF NOT EXISTS extractions (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id   INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        source      TEXT NOT NULL,            -- homepage / github / combined
+        version     INTEGER NOT NULL DEFAULT 1,
+        model       TEXT NOT NULL DEFAULT '',
+        json        TEXT NOT NULL,
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_extractions_person ON extractions(person_id, source);
+
+    -- ── 规范层：项目 与 人际关系（图谱的点和边）──
+
+    CREATE TABLE IF NOT EXISTS projects (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id   INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        url         TEXT,
+        description TEXT,
+        direction   TEXT,
+        tech        TEXT,
+        period      TEXT,
+        source      TEXT NOT NULL DEFAULT '', -- homepage / github / manual
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_projects_person ON projects(person_id);
+
+    CREATE TABLE IF NOT EXISTS collaborations (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id   INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        collaborator_name      TEXT NOT NULL,
+        collaborator_person_id INTEGER REFERENCES people(id),  -- 延迟对齐：在库则关联，不在库留名
+        relation    TEXT NOT NULL DEFAULT 'collaborator',      -- advisor/advisee/coauthor/labmate/colleague/mentioned
+        context     TEXT NOT NULL DEFAULT '',                  -- 哪篇论文/哪个实验室/什么场合
+        collaborator_url TEXT,
+        source      TEXT NOT NULL DEFAULT '',                  -- homepage / icml_coauthor / s2 / inferred
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_collab_person ON collaborations(person_id);
+    CREATE INDEX IF NOT EXISTS idx_collab_name ON collaborations(collaborator_name);
+
+    -- ── 原始快照层：抓取的网页/API 原文，只增不改，结构化提取可随时重跑 ──
+
+    CREATE TABLE IF NOT EXISTS web_snapshots (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id   INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        source      TEXT NOT NULL,            -- github_profile / github_readme / homepage / scholar
+        url         TEXT NOT NULL DEFAULT '',
+        raw_text    TEXT NOT NULL DEFAULT '',
+        fetched_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_snapshots_person ON web_snapshots(person_id, source);
     """)
 
     # FTS5 全文搜索索引（按时效性分列，支持加权排序）
@@ -344,6 +478,21 @@ def get_person(person_id: int) -> dict | None:
     person["history"] = [
         dict(r) for r in conn.execute(
             "SELECT * FROM history WHERE person_id = ? ORDER BY created_at DESC", (person_id,)
+        ).fetchall()
+    ]
+    person["publications"] = [
+        dict(r) for r in conn.execute(
+            "SELECT venue, year, title, is_first_author FROM publications "
+            "WHERE person_id = ? ORDER BY year DESC, is_first_author DESC", (person_id,)
+        ).fetchall()
+    ]
+    person["tags"] = [
+        dict(r) for r in conn.execute(
+            """SELECT t.id, t.name, t.category, pt.source, pt.created_at
+               FROM person_tags pt JOIN tags t ON pt.tag_id = t.id
+               WHERE pt.person_id = ?
+               ORDER BY t.category, t.name""",
+            (person_id,),
         ).fetchall()
     ]
     conn.close()
@@ -791,7 +940,7 @@ def search_academic(filters: dict = None, limit: int = 50, offset: int = 0) -> t
     filters = filters or {}
     conn = get_conn()
 
-    where_clauses = ["source_type = 'academic'"]
+    where_clauses = ["(source_type = 'academic' OR source_type = 'industry')"]
     params = []
 
     if filters.get("q"):
@@ -851,13 +1000,289 @@ def get_academic_filters() -> dict:
     """Get distinct values for filter dropdowns on the academic page."""
     conn = get_conn()
     institutions = [r[0] for r in conn.execute(
-        "SELECT DISTINCT institution FROM people WHERE source_type='academic' AND institution IS NOT NULL ORDER BY institution"
+        "SELECT DISTINCT institution FROM people WHERE source_type IN ('academic','industry') AND institution IS NOT NULL ORDER BY institution"
     ).fetchall()]
     advisors = [r[0] for r in conn.execute(
-        "SELECT DISTINCT advisor FROM people WHERE source_type='academic' AND advisor IS NOT NULL ORDER BY advisor"
+        "SELECT DISTINCT advisor FROM people WHERE source_type IN ('academic','industry') AND advisor IS NOT NULL ORDER BY advisor"
     ).fetchall()]
     roles = [r[0] for r in conn.execute(
-        "SELECT DISTINCT title FROM people WHERE source_type='academic' AND title IS NOT NULL ORDER BY title"
+        "SELECT DISTINCT title FROM people WHERE source_type IN ('academic','industry') AND title IS NOT NULL ORDER BY title"
     ).fetchall()]
     conn.close()
     return {"institutions": institutions, "advisors": advisors, "roles": roles}
+
+
+# ── 标签系统 ──
+
+def ensure_tag(name: str, category: str = "custom", conn=None) -> int:
+    """Get or create a tag by name. Returns tag_id."""
+    close = False
+    if conn is None:
+        conn = get_conn()
+        close = True
+    row = conn.execute("SELECT id FROM tags WHERE name = ?", (name,)).fetchone()
+    if row:
+        tag_id = row["id"]
+    else:
+        cur = conn.execute("INSERT INTO tags (name, category) VALUES (?, ?)", (name, category))
+        conn.commit()
+        tag_id = cur.lastrowid
+    if close:
+        conn.close()
+    return tag_id
+
+
+def add_person_tag(person_id: int, tag_name: str, category: str = "custom", source: str = "manual", conn=None):
+    """Add a tag to a person. Creates the tag if it doesn't exist. Skips if already tagged."""
+    close = False
+    if conn is None:
+        conn = get_conn()
+        close = True
+    tag_id = ensure_tag(tag_name, category, conn)
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO person_tags (person_id, tag_id, source) VALUES (?, ?, ?)",
+            (person_id, tag_id, source),
+        )
+        conn.commit()
+    except Exception:
+        pass
+    if close:
+        conn.close()
+
+
+def get_person_tags(person_id: int) -> list[dict]:
+    """Get all tags for a person."""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT t.id, t.name, t.category, pt.source, pt.created_at
+           FROM person_tags pt JOIN tags t ON pt.tag_id = t.id
+           WHERE pt.person_id = ?
+           ORDER BY t.category, t.name""",
+        (person_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def remove_person_tag(person_id: int, tag_id: int):
+    """Remove a tag from a person."""
+    conn = get_conn()
+    conn.execute("DELETE FROM person_tags WHERE person_id = ? AND tag_id = ?", (person_id, tag_id))
+    conn.commit()
+    conn.close()
+
+
+def search_by_tag(tag_name: str, limit: int = 50, offset: int = 0) -> tuple[list[dict], int]:
+    """Find all people with a given tag."""
+    conn = get_conn()
+    total = conn.execute(
+        """SELECT COUNT(*) FROM person_tags pt
+           JOIN tags t ON pt.tag_id = t.id
+           WHERE t.name = ?""",
+        (tag_name,),
+    ).fetchone()[0]
+    rows = conn.execute(
+        """SELECT p.* FROM people p
+           JOIN person_tags pt ON p.id = pt.person_id
+           JOIN tags t ON pt.tag_id = t.id
+           WHERE t.name = ?
+           ORDER BY p.updated_at DESC LIMIT ? OFFSET ?""",
+        (tag_name, limit, offset),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows], total
+
+
+def get_all_tags() -> list[dict]:
+    """Get all tags with person counts."""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT t.id, t.name, t.category, COUNT(pt.person_id) as count
+           FROM tags t LEFT JOIN person_tags pt ON t.id = pt.tag_id
+           GROUP BY t.id ORDER BY count DESC, t.name""",
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# ── GitHub 身份验证 + 快照层 ──
+
+
+def get_unverified_github_people(limit: int = 50) -> list[dict]:
+    """取 github_url 非空且尚未验证过身份的人。"""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT id FROM people
+           WHERE github_url IS NOT NULL AND github_url != ''
+             AND github_verified IS NULL
+           ORDER BY id LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [get_person(r["id"]) for r in rows]
+
+
+def set_github_verified(person_id: int, level: str, evidence: str = ""):
+    """写入验证等级；evidence 追加到 notes 之外单独存快照，这里只更新等级。"""
+    conn = get_conn()
+    conn.execute(
+        "UPDATE people SET github_verified = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (level, person_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_personal_page(person_id: int, url: str):
+    """补全个人主页字段（仅在原值为空时写入）。"""
+    conn = get_conn()
+    conn.execute(
+        """UPDATE people SET personal_page = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ? AND (personal_page IS NULL OR personal_page = '')""",
+        (url, person_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def add_snapshot(person_id: int, source: str, url: str, raw_text: str):
+    """存原始快照。同 person+source+url 当天重复抓取只保留最新一份。"""
+    conn = get_conn()
+    conn.execute(
+        """DELETE FROM web_snapshots
+           WHERE person_id = ? AND source = ? AND url = ? AND date(fetched_at) = date('now')""",
+        (person_id, source, url),
+    )
+    conn.execute(
+        "INSERT INTO web_snapshots (person_id, source, url, raw_text) VALUES (?, ?, ?, ?)",
+        (person_id, source, url, raw_text),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_snapshots(person_id: int, source: str = "") -> list[dict]:
+    """取某人的快照，可按 source 过滤。"""
+    conn = get_conn()
+    if source:
+        rows = conn.execute(
+            "SELECT * FROM web_snapshots WHERE person_id = ? AND source = ? ORDER BY fetched_at DESC",
+            (person_id, source),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM web_snapshots WHERE person_id = ? ORDER BY fetched_at DESC",
+            (person_id,),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_github_verified_people() -> list[dict]:
+    """取所有已做过 GitHub 身份验证的人（复核页用）。"""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT id, first_name || ' ' || last_name AS name, company, title,
+                  linkedin_url, github_url, email, personal_page, github_verified
+           FROM people WHERE github_verified IS NOT NULL ORDER BY id"""
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# ── 视角化列表（Pool lens: all / academic / industry / conf / oss）──
+
+# 会议名归一化：原始 venue 字符串 → 干净缩写。长/更具体的关键词排前面（如 naacl 在 acl 前）
+_VENUE_MAP = [
+    ("neurips", "NeurIPS"), ("nips", "NeurIPS"), ("iclr", "ICLR"), ("icml", "ICML"),
+    ("cvpr", "CVPR"), ("iccv", "ICCV"), ("eccv", "ECCV"), ("wacv", "WACV"),
+    ("emnlp", "EMNLP"), ("naacl", "NAACL"), ("coling", "COLING"), ("acl", "ACL"),
+    ("aaai", "AAAI"), ("ijcai", "IJCAI"), ("aistats", "AISTATS"), ("uai", "UAI"),
+    ("kdd", "KDD"), ("sigir", "SIGIR"), ("siggraph", "SIGGRAPH"), ("colm", "COLM"),
+    ("interspeech", "Interspeech"), ("icassp", "ICASSP"), ("iros", "IROS"),
+    ("icra", "ICRA"), ("corl", "CoRL"), ("acm multimedia", "ACM MM"), ("acmmm", "ACM MM"),
+    ("thewebconf", "WWW"), ("www", "WWW"), ("tpami", "TPAMI"), ("jmlr", "JMLR"),
+    ("nature", "Nature"), ("science", "Science"), ("miccai", "MICCAI"), ("mlsys", "MLSys"),
+]
+# 顶会展示优先级（越靠前越先显示）
+_VENUE_RANK = {v: i for i, v in enumerate(dict.fromkeys(c for _, c in _VENUE_MAP))}
+
+
+def canon_venues(raw: str, limit: int = 4) -> str:
+    """原始 venue 串（'|' 分隔）→ 归一化顶会缩写，去噪去重，按优先级排序，逗号拼接。"""
+    if not raw:
+        return ""
+    found = []
+    for part in raw.split("|"):
+        low = part.lower()
+        hit = next((canon for kw, canon in _VENUE_MAP if kw in low), None)
+        if hit and hit not in found:
+            found.append(hit)
+    found.sort(key=lambda v: _VENUE_RANK.get(v, 99))
+    return ",".join(found[:limit])
+
+
+LENS_WHERE = {
+    "academic": "p.sector = 'academic'",
+    "industry": "p.sector = 'industry'",
+    "conf": "EXISTS (SELECT 1 FROM publications pub WHERE pub.person_id = p.id)",
+    "oss": "p.github_verified IN ('verified_link', 'verified_email', 'llm_confirmed', 'import_high')",
+}
+
+
+def list_people(lens: str = "", query: str = "", limit: int = 30, offset: int = 0) -> tuple[list[dict], int]:
+    """统一人才列表：lens 是同一池子上的筛选窗口，附带徽章所需字段。"""
+    where, params = [], []
+    if lens in LENS_WHERE:
+        where.append(LENS_WHERE[lens])
+    if query:
+        for term in query.split():
+            frag, ps = _like_clause(term)
+            where.append(frag.replace("first_name", "p.first_name").replace("last_name", "p.last_name")
+                         .replace("company", "p.company").replace("title", "p.title")
+                         .replace("headline", "p.headline").replace("location", "p.location"))
+            params.extend(ps)
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    conn = get_conn()
+    total = conn.execute(f"SELECT COUNT(*) FROM people p {where_sql}", params).fetchone()[0]
+    rows = conn.execute(
+        f"""SELECT p.id, p.first_name, p.last_name, p.linkedin_url, p.email, p.github_url,
+                   p.title, p.headline, p.company, p.location, p.industry, p.status, p.notes,
+                   p.sector, p.github_verified, p.institution, p.created_at, p.updated_at,
+                   (SELECT GROUP_CONCAT(pub.venue, '|') FROM publications pub
+                    WHERE pub.person_id = p.id) AS venues
+            FROM people p {where_sql}
+            ORDER BY p.updated_at DESC LIMIT ? OFFSET ?""",
+        params + [limit, offset],
+    ).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["venues"] = canon_venues(d.get("venues"))
+        out.append(d)
+    return out, total
+
+
+def get_badge_fields(person_ids: list[int]) -> dict[int, dict]:
+    """给搜索结果补徽章字段（sector / github_verified / venues），一次查询。"""
+    if not person_ids:
+        return {}
+    conn = get_conn()
+    ph = ",".join("?" * len(person_ids))
+    rows = conn.execute(
+        f"""SELECT p.id, p.sector, p.github_verified,
+                   (SELECT GROUP_CONCAT(pub.venue, '|') FROM publications pub
+                    WHERE pub.person_id = p.id) AS venues
+            FROM people p WHERE p.id IN ({ph})""",
+        person_ids,
+    ).fetchall()
+    conn.close()
+    result = {}
+    for r in rows:
+        d = dict(r)
+        d["venues"] = canon_venues(d.get("venues"))
+        result[r["id"]] = d
+    return result

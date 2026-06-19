@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Talent Pool · Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf9f7; --surface: #ffffff; --border: #ece9e4; --border-lt: #f4f2ee;
+      --text: #1c1b19; --text-2: #6b6862; --text-3: #a9a59d;
+      --accent: #c0392b; --accent-soft: #fbf1ef;
+      --blue: #4a7fb5; --gold: #c79a3a; --green: #5a8a6a;
+      --font: 'DM Sans', -apple-system, sans-serif; --mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+
+    .hero { padding: 54px 40px 34px; max-width: 1280px; margin: 0 auto; }
+    .hero .eyebrow { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+    .hero h1 { font-size: 2.1rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
+    .hero h1 .light { color: var(--text-3); font-weight: 400; }
+    .hero p { color: var(--text-2); font-size: 0.95rem; margin-top: 12px; max-width: 560px; line-height: 1.55; }
+    .stats { display: flex; gap: 40px; margin-top: 26px; }
+    .stat .n { font-size: 1.7rem; font-weight: 700; font-family: var(--mono); letter-spacing: -0.02em; }
+    .stat .l { font-size: 0.74rem; color: var(--text-3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .grid { max-width: 1280px; margin: 0 auto; padding: 8px 40px 80px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(296px, 1fr)); gap: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px 20px 16px; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, border-color .16s;
+      display: flex; flex-direction: column; min-height: 192px; text-decoration: none; color: inherit; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(40,30,20,0.09);
+      border-color: #ddd8d0; }
+    .card-top { display: flex; align-items: flex-start; gap: 12px; }
+    .avatar { width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0; display: flex;
+      align-items: center; justify-content: center; font-weight: 700; font-size: 0.95rem; color: #fff; letter-spacing: -0.02em; }
+    .nm { font-size: 1.02rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+    .aff { font-size: 0.78rem; color: var(--text-2); margin-top: 2px; line-height: 1.35; }
+    .sector-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+    .summary { font-size: 0.79rem; color: var(--text-2); line-height: 1.5; margin: 12px 0 10px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .dirs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+    .chip { font-size: 0.68rem; font-weight: 600; padding: 2.5px 9px; border-radius: 999px;
+      background: #f3f0ea; color: #6a6358; white-space: nowrap; }
+    .chip.v { background: #eef3f9; color: var(--blue); }
+    .foot { margin-top: auto; display: flex; align-items: center; gap: 14px; padding-top: 10px;
+      border-top: 1px solid var(--border-lt); font-size: 0.72rem; color: var(--text-3); }
+    .foot b { color: var(--text); font-family: var(--mono); font-weight: 500; }
+    .foot .advisor { color: var(--gold); }
+    .nav { max-width: 1280px; margin: 0 auto; padding: 16px 40px 0; }
+    .nav a { font-size: 0.8rem; color: var(--text-3); text-decoration: none; }
+    .nav a:hover { color: var(--accent); }
+    @media (max-width: 600px) { .hero { padding: 36px 22px 24px; } .grid { padding: 8px 22px 60px; } .stats { gap: 24px; } }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="/pool">← 完整人才库</a></div>
+  <div class="hero">
+    <div class="eyebrow">Talent Pool · Demo</div>
+    <h1>精选 AI 人才 <span class="light">/ 多源融合画像</span></h1>
+    <p>从 4,250 人的人才库中按画像完整度精选 100 位。每位候选人融合了 LinkedIn、顶会论文、GitHub 与个人主页四源信息，并已构建协作关系网络。</p>
+    <div class="stats">
+      <div class="stat"><div class="n">{{ people|length }}</div><div class="l">精选候选人</div></div>
+      <div class="stat"><div class="n">{{ n_inst }}</div><div class="l">所属机构</div></div>
+      <div class="stat"><div class="n">{{ '{:,}'.format(total_conns) }}</div><div class="l">协作连接</div></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    {% set avatar_colors = ['#c0392b','#4a7fb5','#5a8a6a','#c79a3a','#8a6aaf','#3a8a8a','#b5683a'] %}
+    {% for p in people %}
+    <a class="card" href="/pool/{{ p.id }}">
+      <div class="card-top">
+        <div class="avatar" style="background: {{ avatar_colors[loop.index0 % 7] }};">
+          {{ p.first_name[0] }}{{ p.last_name[0] if p.last_name }}
+        </div>
+        <div style="min-width:0;">
+          <div class="nm">{{ p.first_name }} {{ p.last_name }}</div>
+          <div class="aff">
+            <span class="sector-dot" style="background: {{ '#c79a3a' if p.sector=='academic' else '#4a7fb5' }};"></span>{{ p.aff }}
+          </div>
+        </div>
+      </div>
+      {% if p.summary %}<div class="summary">{{ p.summary }}</div>{% endif %}
+      <div class="dirs">
+        {% for v in p.venues %}<span class="chip v">{{ v }}</span>{% endfor %}
+        {% for d in p.dirs[:3] %}<span class="chip">{{ d }}</span>{% endfor %}
+      </div>
+      <div class="foot">
+        {% if p.conns %}<span>协作 <b>{{ p.conns }}</b></span>{% endif %}
+        {% if p.advisor %}<span class="advisor">导师 {{ p.advisor.split(',')[0][:18] }}</span>{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</body>
+</html>
