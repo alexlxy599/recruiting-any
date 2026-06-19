@@ -60,31 +60,41 @@
 
 ```
 .
-├── app.py                # Flask 主入口（人才库 API + 话术生成 API）
-├── db.py                 # 数据层：schema + 所有 CRUD
-├── data.db               # SQLite 主库（gitignored）
+├── app.py                  # Flask 主入口（人才库 + 话术 + 学术/会议/实验室 sourcing API）
+├── db.py                   # 数据层：schema + 所有 CRUD
+├── data.db                 # SQLite 主库（gitignored）
 ├── data/
-│   ├── raw/              # 原始 CSV 等导入文件
-│   └── vectors/          # LanceDB 向量库
-├── ingest/               # 数据导入脚本（CSV → DB）
+│   ├── raw/                # 原始 CSV 等导入文件
+│   └── vectors/            # LanceDB 向量库
+├── ingest/                 # 数据导入
+│   ├── import_csv.py       # CSV → DB
+│   ├── import_icml.py      # ICML 论文 / 作者导入
+│   └── build_coauthor_graph.py  # 共同作者关系图
+├── migrations/             # 破坏性 schema 变更迁移脚本
+│   └── 001_linkedin_nullable.py
 ├── ai/
-│   ├── provider.py       # AI 统一接口（三路切换）
-│   ├── tagger.py         # 批量自动打标签
-│   ├── embedder.py       # 向量化
-│   ├── matcher.py        # JD 匹配
-│   └── prompts/          # System prompt 模板
-├── enrich/               # 背景信息抓取（GitHub / S2 / 搜索）
-├── outreach/             # 外联模块（原话术定制器，现在是子模块）
-│   └── generator.py      # 生成话术
-├── cli/
-│   └── tp.py             # 命令行入口（typer）
-├── templates/            # Jinja2 模板（人才库界面 + 外联界面）
-├── .env                  # API key + AI_MODE 等配置
-├── CLAUDE.md             # 本文件
+│   └── embedder.py         # 向量化 + 语义搜索（semantic_search）
+├── csrankings.py           # CSRankings 院校 / faculty 数据
+├── scraper.py              # 实验室主页抓取（基础版）
+├── fast_scraper.py         # 实验室主页抓取（快速版）
+├── agent_scraper.py        # 实验室主页抓取（agent 版）
+├── conference_scraper.py   # 会议论文抓取
+├── discover_s2.py          # Semantic Scholar 候选人发现
+├── enrich_academic.py      # 学术背景补全（个人主页）
+├── enrich_homepage.py      # 个人主页 enrich
+├── enrich_github_repos.py  # GitHub 仓库 enrich
+├── verify_github.py        # GitHub 信号验证
+├── verify_medium.py        # Medium 信号验证
+├── templates/              # Jinja2 模板
+│   ├── index.html / academic.html / people.html / person.html
+│   ├── demo.html / discover.html / github_review.html / lab_sourcer.html
+├── .env                    # API key + AI_MODE 等配置
+├── CLAUDE.md               # 本文件
 └── README.md
 ```
 
-> **⚠️ 现状提示**：当前代码库只有 `app.py + db.py + templates/`，目录结构是目标态。重构时按这个布局拆。
+> **现状提示**：项目重心已从「外联话术」扩展到**学术/会议/实验室 sourcing**（lab-sourcer、conference、discover、academic 等大量路由）。
+> 原计划中的 `ai/provider.py`（统一 LLM 接口）、`ai/tagger.py`（批量打标签）、`ai/matcher.py`（JD 匹配）、`outreach/generator.py`、`cli/tp.py` **尚未拆出**，话术生成与外部 LLM 调用目前仍在 `app.py` 内。下次重构时按上面布局拆。
 
 ---
 
@@ -184,25 +194,34 @@ System prompts 集中在 `ai/prompts/` 下，按 `{purpose}_{language}.md` 命�
 - [x] v1 SQLite 存 sender + history
 - [x] v2 schema 扩展：people / experiences / educations / tags / cache 表
 - [x] v2 FTS5 全文搜索 + 触发器自动同步
-- [x] v2 db.py 新增 11 个人才库操作函数，全部向后兼容
+- [x] v2 db.py 新增人才库操作函数，全部向后兼容
+- [x] CSV 导入脚本（`ingest/import_csv.py`）
+- [x] 人才库 Web 界面（`/pool`、`/people`、`/people/<id>` 检索页 + 详情页）
+- [x] 把"生成话术"接到人才库（`/api/generate-for-person/<person_id>`，按 person_id 拉数据）
+- [x] 向量化 + 语义搜索（`ai/embedder.py:semantic_search`）
+- [x] 标签管理（手动增删查，`/api/person/<id>/tags`）
+- [x] 精品 Demo 人才池（`/demo`，Top 100 演示）
+- [x] 数据库迁移机制（`migrations/`，首个：linkedin_url 可空）
+- [x] **实验室 sourcing**（`/lab-sourcer`：CSRankings faculty → 主页抓取 → 导入，含基础/快速/agent 三种抓取 + enrich）
+- [x] **会议论文 sourcing**（`/api/conference/*`：上传/抓取/筛选/enrich/作者提取）
+- [x] **学术候选人发现**（`/discover` + `discover_s2.py`，Semantic Scholar）
+- [x] **学术 pipeline 管理**（`/academic` + `/api/academic/people/<id>/status` 状态追踪）
+- [x] GitHub / 主页信号 enrich + 验证（`enrich_*` / `verify_*` / `/pool/github-review`）
+- [x] 共同作者关系图（`ingest/build_coauthor_graph.py` + `/api/people/<id>/graph`）
+- [x] 洞察接口（`/api/people/insights`、`/api/pool/lens-counts`）
 
 ### 进行中 / 待做
-- [ ] CSV 导入脚本（`ingest/import_csv.py`）
-- [ ] AI Provider 统一接口（把 app.py 里的两处直接调用迁过来）
-- [ ] 人才库 Web 界面（`/people` 路由 + 检索页 + 详情页）
-- [ ] 把"生成话术"接到人才库（按 person_id 拉数据，不用每次手输）
-- [ ] AI 自动打标签（批量，本地模型）
-- [ ] 向量化 + 语义搜索
-- [ ] JD 匹配功能
-- [ ] CLI 工具 `tp`
-- [ ] 状态机追踪（pipeline 管理）
-- [ ] 分析洞察 dashboard
+- [ ] AI Provider 统一接口（把 `app.py` 里直接 `import anthropic`/`openai` 的调用迁过来）
+- [ ] AI 自动打标签（批量，本地模型，`ai/tagger.py`）
+- [ ] JD 匹配功能（`ai/matcher.py`）
+- [ ] 把话术生成抽到 `outreach/generator.py`
+- [ ] CLI 工具 `tp`（`cli/tp.py`）
+- [ ] 完整可视化分析 dashboard（目前只有零散 insights 接口）
 
 ### 下一步建议
 
-如果是第一次接手项目，建议按这个顺序：
-1. **先跑通现有 v1**（确认 `python app.py` 能起来）
-2. **写 CSV 导入脚本**（让人才库真的有数据）
-3. **加 `/people` 检索页面**（让用户能看到库里的人）
-4. **接通话术生成和人才库**（点候选人 → 一键生成话术）
-5. 后面的功能按需推进
+代码已铺得很开但 `app.py` 偏臃肿（2800+ 行）。建议优先：
+1. **抽 `ai/provider.py`**（统一三路 LLM 调用，消除 app.py 里的直连 anthropic/openai）
+2. **抽 `outreach/generator.py`**（把话术生成从 app.py 拆出）
+3. **AI 自动打标签 + JD 匹配**（让人才库从"能存能搜"升级到"能智能召回"）
+4. 其余按需推进
