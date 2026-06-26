@@ -664,6 +664,28 @@
   <div class="header-right">{{ person.first_name }} {{ person.last_name }}</div>
 </header>
 
+{% if search_query %}
+<style>
+  .why-banner { margin: 16px 24px 0; padding: 14px 18px; border-radius: 12px;
+    background: linear-gradient(90deg,#fff8e6,#fffdf5); border: 1px solid #ffe0a3;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .why-head { font-size: 0.74rem; font-weight: 700; color: #b8860b; letter-spacing: .03em;
+    text-transform: uppercase; margin-bottom: 6px; }
+  .why-q { color: #7c4d00; background: #ffe9b8; padding: 1px 7px; border-radius: 4px; }
+  .why-reason { font-size: 0.92rem; line-height: 1.55; color: #4a3b1a; }
+  .why-reason.muted { color: #998; font-size: 0.82rem; }
+  mark.hl { background: #fff2a8; color: inherit; padding: 0 1px; border-radius: 2px; }
+</style>
+<div class="why-banner">
+  <div class="why-head">★ 为什么推荐给你 · 搜索「<span class="why-q">{{ search_query }}</span>」</div>
+  {% if match_reason %}
+  <div class="why-reason">{{ match_reason }}</div>
+  {% else %}
+  <div class="why-reason muted">下方已高亮命中的关键词（未生成 AI 理由：可能未配置模型，或与该搜索关联较弱）。</div>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="layout">
   <!-- ════ LEFT: Profile Card ════ -->
   <div class="col-left">
@@ -1340,6 +1362,51 @@
   }
   renderNetwork();
 </script>
+
+{% if search_query %}
+<script>
+// 关键词高亮：把搜索词在档案正文里标黄（跳过链接/按钮/脚本，避免破坏结构）
+(function () {
+  const RAW = {{ search_query|tojson }};
+  const STOP = new Set(['and','or','not','the','of','in','for','a','an','to','with','on','&']);
+  let terms = RAW.split(/[\s,;/]+/).map(t => t.trim()).filter(t => t.length >= 2 && !STOP.has(t.toLowerCase()));
+  const whole = RAW.trim();
+  if (whole.length >= 2) terms.push(whole);
+  terms = [...new Set(terms)].sort((a, b) => b.length - a.length); // 长短语优先
+  if (!terms.length) return;
+  const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = terms.map(escRe).join('|');
+  const reTest = new RegExp(pattern, 'i');
+  const re = new RegExp(pattern, 'gi');
+  const SKIP = new Set(['SCRIPT','STYLE','A','BUTTON','INPUT','TEXTAREA','MARK','SELECT']);
+  const root = document.querySelector('.layout');
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      let p = node.parentNode;
+      while (p && p !== root) { if (SKIP.has(p.nodeName)) return NodeFilter.FILTER_REJECT; p = p.parentNode; }
+      return reTest.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  const targets = []; let n;
+  while ((n = walker.nextNode())) targets.push(n);
+  targets.forEach(node => {
+    const s = node.nodeValue; re.lastIndex = 0;
+    const frag = document.createDocumentFragment(); let last = 0, m;
+    while ((m = re.exec(s))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+      const mark = document.createElement('mark'); mark.className = 'hl'; mark.textContent = m[0];
+      frag.appendChild(mark);
+      last = m.index + m[0].length;
+      if (m.index === re.lastIndex) re.lastIndex++;
+    }
+    if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  });
+})();
+</script>
+{% endif %}
 
 </body>
 </html>

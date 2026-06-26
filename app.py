@@ -12,8 +12,9 @@ from duckduckgo_search import DDGS
 from db import (init_db, get_sender_config, save_sender_config, add_history, get_history, delete_history, clear_history,
                 search_people, search_people_boolean, search_people_fts, get_person, count_people, upsert_person,
                 add_experiences, add_educations, get_conn, rebuild_fts, update_fts_for_person,
-                search_academic, get_academic_filters,
-                add_person_tag, get_person_tags, get_all_tags, search_by_tag, remove_person_tag)
+                search_academic, get_academic_filters, get_venue_counts,
+                add_person_tag, get_person_tags, get_all_tags, search_by_tag, remove_person_tag,
+                cache_get, cache_set)
 from ai.embedder import semantic_search
 from csrankings import get_institutions, get_ai_faculty, get_all_faculty, AREA_LABELS
 from scraper import scrape_lab, scrape_department_page
@@ -766,12 +767,77 @@ def pool_page():
     return render_template("people.html")
 
 
+def _match_reason(person: dict, query: str) -> str:
+    """「为什么推荐」：用 1-2 句指出候选人命中搜索意图的具体证据。按 (pid, query) 缓存 30 天。"""
+    import hashlib, re
+    key = f"match_reason:{person.get('id')}:{hashlib.md5(query.lower().strip().encode()).hexdigest()[:12]}"
+    cached = cache_get(key)
+    if cached is not None:
+        return cached
+
+    parts = []
+    for f in ("title", "company", "institution", "headline", "research_area",
+              "location", "github_summary", "industry"):
+        if person.get(f):
+            parts.append(f"{f}: {person[f]}")
+    for e in (person.get("experiences") or [])[:6]:
+        if e.get("title") or e.get("company"):
+            parts.append(f"经历: {e.get('title','')} @ {e.get('company','')}")
+    for ed in (person.get("educations") or [])[:4]:
+        if ed.get("school"):
+            parts.append(f"教育: {ed.get('school','')} {ed.get('field') or ''}")
+    for pub in (person.get("publications") or [])[:8]:
+        parts.append(f"论文({pub.get('venue','')}): {pub.get('title','')}")
+    tags = [t.get("name", "") for t in (person.get("tags") or []) if t.get("name")]
+    if tags:
+        parts.append("标签: " + ", ".join(tags))
+    blob = "\n".join(parts)[:1500]   # 收短：本地推理模型 prompt 越长思考越停不下来
+    if not blob:
+        return ""
+
+    provider, api_key, model_name, base_url = _resolve_llm_config("", {})
+    if not api_key and provider == "anthropic":
+        return ""
+    sys_p = ("你是招聘检索助手。给定一个搜索意图和一位候选人的背景，用中文一句话（最多两句）"
+             "说明这位候选人为什么匹配该搜索——必须指向背景里的具体证据（研究方向/论文/技能/经历/机构），"
+             "不要泛泛而谈，也不要复述全部背景。若关联较弱，直说‘关联较弱’并指出最接近的一点。")
+    user_p = f"搜索意图：{query}\n\n候选人背景：\n{blob}\n\n输出匹配理由："
+    try:
+        # max_tokens 给足：本地推理模型(deepseek/qwen-thinking)会先消耗几百思考 token，给少了正文为空
+        if provider == "anthropic":
+            client = anthropic.Anthropic(api_key=api_key)
+            msg = client.messages.create(model=model_name, max_tokens=1024, system=sys_p,
+                                         messages=[{"role": "user", "content": user_p}])
+            reason = msg.content[0].text.strip()
+        else:
+            kwargs = {"api_key": api_key or "lm-studio"}
+            if base_url:
+                kwargs["base_url"] = base_url
+            client = OpenAI(**kwargs)
+            resp = client.chat.completions.create(
+                model=model_name, max_tokens=4096,   # 给足：推理模型先耗千余思考 token，少了正文为空
+                messages=[{"role": "system", "content": sys_p},
+                          {"role": "user", "content": user_p}])
+            reason = (resp.choices[0].message.content or "").strip()
+            reason = re.sub(r"(?is)<think>.*?</think>", "", reason).strip()  # 防御:剥离残留思考标签
+    except Exception as e:
+        app.logger.warning(f"match_reason failed for {person.get('id')}: {e}")
+        return ""
+    if reason:                 # 只缓存非空结果，避免把失败/空回复钉死在缓存里
+        cache_set(key, reason)
+    return reason
+
+
 @app.route("/pool/<int:person_id>")
 @app.route("/people/<int:person_id>")
 def person_page(person_id):
     person = get_person(person_id)
     if not person:
         return "Not found", 404
+
+    # 「为什么推荐」：仅当从搜索点进来（带 ?q=）时计算
+    search_query = request.args.get("q", "").strip()
+    match_reason = _match_reason(person, search_query) if search_query else ""
 
     # GitHub 画像：从快照层组装（profile JSON + README + 个人主页摘要）
     github = None
@@ -844,7 +910,8 @@ def person_page(person_id):
         os.path.dirname(__file__), "data", "discoveries", f"{person_id}.json"))
     return render_template("person.html", person=person, github=github,
                            homepage_profile=homepage_profile, wordcloud=wordcloud,
-                           has_discovery=has_discovery)
+                           has_discovery=has_discovery,
+                           search_query=search_query, match_reason=match_reason)
 
 
 # 泛词黑名单：太宽泛、无区分度的方向词不进词云
@@ -1223,6 +1290,15 @@ def api_people_insights():
         {"label": "面试中", "value": interviewing},
     ]
 
+    # Research / work directions — detailed word cloud (count distinct candidates per topic)
+    raw_topics = conn.execute(
+        """SELECT LOWER(TRIM(t.name)) AS label, COUNT(DISTINCT pt.person_id) AS value
+           FROM person_tags pt JOIN tags t ON t.id = pt.tag_id
+           WHERE t.category IN ('domain', 'skill') AND TRIM(t.name) != ''
+           GROUP BY LOWER(TRIM(t.name))"""
+    ).fetchall()
+    research_topics = _build_topic_cloud(raw_topics)
+
     conn.close()
     return jsonify({
         "total": total,
@@ -1235,7 +1311,57 @@ def api_people_insights():
         "seniority": seniority,
         "funnel": funnel,
         "enriched": enriched,
+        "research_topics": research_topics,
     })
+
+
+# 高层/工具类词——词云里滤掉，只留细粒度方向
+_TOPIC_STOP = {
+    "machine learning", "deep learning", "artificial intelligence", "ai", "ml", "dl",
+    "neural networks", "neural network", "data science", "computer science", "statistics",
+    "mathematics", "algorithms", "algorithm", "programming", "software engineering",
+    "software development", "research", "big data", "data mining", "data analysis",
+    "python", "c++", "java", "javascript", "pytorch", "tensorflow", "keras", "sql",
+    "linux", "git", "docker", "kubernetes", "matlab", "scala", "rust", "golang",
+    "python开发", "开发", "vision", "systems", "agents",
+}
+# 中英 / 同义归并到统一键
+_TOPIC_ALIAS = {
+    "计算机视觉": "computer vision", "深度学习": "deep learning", "强化学习": "reinforcement learning",
+    "机器学习": "machine learning", "自然语言处理": "nlp", "大语言模型": "large language models",
+    "多模态": "multimodal learning", "多模态学习": "multimodal learning", "生成模型": "generative models",
+    "扩散模型": "diffusion models", "机器人": "robotics", "机器人学": "robotics", "具身智能": "embodied ai",
+    "三维视觉": "3d vision", "优化": "optimization", "图形学": "computer graphics",
+    "llms": "large language models", "llm": "large language models", "vlms": "vision-language models",
+    "vlm": "vision-language models", "natural language processing": "nlp",
+    "vision-language": "vision-language models", "language models": "large language models",
+    "llm agent": "llm agents", "video generation": "video generation",
+}
+_TOPIC_ACRONYM = {
+    "llm": "LLM", "llms": "LLMs", "nlp": "NLP", "vlm": "VLM", "vlms": "VLMs", "ai": "AI",
+    "3d": "3D", "2d": "2D", "rl": "RL", "gan": "GAN", "gans": "GANs", "rlhf": "RLHF",
+    "cv": "CV", "hci": "HCI", "ar": "AR", "vr": "VR", "slam": "SLAM", "ocr": "OCR",
+    "mllm": "MLLM", "moe": "MoE", "gnn": "GNN", "ssl": "SSL",
+}
+
+
+def _topic_display(key: str) -> str:
+    """统一键 → 展示标签：中文原样，英文按词首字母大写、已知缩写保持大写。"""
+    if any("一" <= ch <= "鿿" for ch in key):
+        return key
+    return " ".join(_TOPIC_ACRONYM.get(w, w.capitalize()) for w in key.split())
+
+
+def _build_topic_cloud(raw_topics, limit: int = 20):
+    """归并大小写/中英别名、滤掉高层与工具词，按候选人数取 top N。"""
+    agg = {}
+    for r in raw_topics:
+        key = _TOPIC_ALIAS.get(r["label"], r["label"]).strip()
+        if not key or len(key) < 2 or key in _TOPIC_STOP:
+            continue
+        agg[key] = agg.get(key, 0) + r["value"]
+    items = sorted(agg.items(), key=lambda kv: -kv[1])[:limit]
+    return [{"label": _topic_display(k), "value": v} for k, v in items]
 
 
 @app.route("/api/people/enrich-from-linkedin", methods=["POST"])
@@ -2793,6 +2919,7 @@ def api_academic_people():
         "grad_min": request.args.get("grad_min", "").strip(),
         "grad_max": request.args.get("grad_max", "").strip(),
         "research_area": request.args.get("research_area", "").strip(),
+        "venue": request.args.get("venue", "").strip(),
         "status": request.args.get("status", "").strip(),
     }
     # Remove empty filters
@@ -2818,6 +2945,12 @@ def api_academic_people():
 def api_academic_filters():
     """Get distinct values for filter dropdowns."""
     return jsonify(get_academic_filters())
+
+
+@app.route("/api/academic/venues", methods=["GET"])
+def api_academic_venues():
+    """会议/期刊清单 + 每个顶会下的候选人数，给学术板块做会议筛选。"""
+    return jsonify({"venues": get_venue_counts()})
 
 
 @app.route("/api/academic/people/<int:person_id>/status", methods=["PATCH"])

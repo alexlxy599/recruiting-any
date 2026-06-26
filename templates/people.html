@@ -145,9 +145,16 @@
       transition: max-height 0.35s ease, opacity 0.25s ease, margin 0.3s ease;
     }
     .insights-grid.open {
-      max-height: 900px;
+      max-height: 1400px;
       opacity: 1;
     }
+    .topic-cloud {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 5px 13px; line-height: 1.5; padding: 4px 2px;
+      max-height: 240px; overflow-y: auto;
+    }
+    .topic-word { cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+    .topic-word:hover { opacity: 0.6; text-decoration: underline; }
 
     .insight-card {
       background: var(--surface);
@@ -590,6 +597,13 @@
     #academic-view tr:hover { background: #fafbfc; }
     #academic-view .badge-role { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; background: var(--accent-bg); color: var(--accent); }
     #academic-view .area-chip { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.7rem; background: #f0f1f3; color: #555; margin: 1px 2px; }
+    #academic-view .acad-venue-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 12px; }
+    #academic-view .venue-chip { font-family: inherit; font-size: 0.72rem; padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--text-secondary); cursor: pointer; transition: all 0.12s; }
+    #academic-view .venue-chip:hover { border-color: var(--accent); color: var(--accent); }
+    #academic-view .venue-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #academic-view .venue-chip .vc-count { opacity: 0.65; font-size: 0.68rem; margin-left: 2px; }
+    #academic-view .venue-chip.active .vc-count { opacity: 0.85; }
+    #academic-view .venue-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.68rem; background: #eef2ff; color: #4338ca; margin: 1px 2px; white-space: nowrap; }
     #academic-view .status-select { font-family: inherit; font-size: 0.7rem; padding: 2px 6px; border: 1px solid var(--border); border-radius: 3px; background: transparent; cursor: pointer; }
     #academic-view .btn-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; opacity: 0; transition: opacity 0.15s; font-size: 0.85rem; padding: 2px 6px; border-radius: 3px; }
     #academic-view tr:hover .btn-del { opacity: 1; }
@@ -679,6 +693,10 @@
     <div class="insight-card">
       <div class="insight-card-title">Top 院校</div>
       <div class="chart-container"><canvas id="chart-schools"></canvas></div>
+    </div>
+    <div class="insight-card" style="grid-column:1/-1;">
+      <div class="insight-card-title">研究 / 工作方向词云 · 点词即搜（按候选人数加权）</div>
+      <div id="topic-cloud" class="topic-cloud"></div>
     </div>
   </div>
 
@@ -799,11 +817,37 @@
     btn.classList.toggle('open');
   }
 
+  function renderTopicCloud(topics) {
+    const el = document.getElementById('topic-cloud');
+    if (!el) return;
+    if (!topics.length) { el.innerHTML = '<span style="font-size:0.78rem;color:var(--text-tertiary);">暂无方向数据</span>'; return; }
+    const max = topics[0].value, min = topics[topics.length - 1].value;
+    const FMIN = 12, FMAX = 34;
+    el.innerHTML = topics.map(t => {
+      const r = max > min ? (t.value - min) / (max - min) : 1;
+      const size = (FMIN + r * (FMAX - FMIN)).toFixed(1);
+      const lum = Math.round(68 - r * 44);           // 深浅按热度：浅灰蓝 → 深蓝
+      const weight = 400 + Math.round(r * 3) * 100;  // 400 → 700
+      const term = String(t.label).replace(/'/g, "\\'");
+      return `<span class="topic-word" style="font-size:${size}px;color:hsl(214,48%,${lum}%);font-weight:${weight};" title="${t.value} 位候选人" onclick="searchTopic('${term}')">${esc(t.label)}</span>`;
+    }).join('');
+  }
+
+  function searchTopic(term) {
+    const s = document.getElementById('search');
+    if (!s) return;
+    s.value = term;
+    doSearch();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function loadInsights() {
     const resp = await fetch('/api/people/insights');
     const d = await resp.json();
 
     document.getElementById('stat-total').textContent = d.total.toLocaleString();
+
+    renderTopicCloud(d.research_topics || []);
 
     // Stat sub
     const topCompany = d.companies[0];
@@ -960,9 +1004,11 @@
   // ══════════════════════════════════════
 
   const MODE_LABELS = { keyword: '关键词', boolean: '布尔', semantic: '语义' };
+  let currentQuery = '', currentMode = '';
 
   async function loadPeople(page = 1) {
     const q = document.getElementById('search').value.trim();
+    currentQuery = q;
     currentPage = page;
 
     const lens = (currentPoolTab === 'all' || currentPoolTab === 'academic') ? '' : currentPoolTab;
@@ -971,6 +1017,7 @@
     const { data, total } = json;
     currentData = data;
     const usedMode = json.mode || 'keyword';
+    currentMode = usedMode;
 
     const meta = document.getElementById('search-meta');
     if (q) {
@@ -1002,7 +1049,7 @@
           <input type="checkbox" data-id="${p.id}" ${selected.has(p.id) ? 'checked' : ''}
                  onchange="toggleSelect(${p.id}, this.checked)" />
         </td>
-        <td class="name-cell" onclick="window.location='/people/${p.id}'">${esc(p.first_name)} ${esc(p.last_name)}</td>
+        <td class="name-cell" onclick="window.location='/people/${p.id}' + (currentQuery ? '?q=' + encodeURIComponent(currentQuery) + '&mode=' + encodeURIComponent(currentMode) : '')">${esc(p.first_name)} ${esc(p.last_name)}</td>
         <td class="title-cell">${esc(p.title || '')}</td>
         <td class="company-cell">${esc(p.company || p.institution || '')}</td>
         <td class="location-cell">${esc(shortLoc(p.location))}</td>
@@ -1214,6 +1261,7 @@
   // ── Pool Tab Switching ──
   let currentPoolTab = 'all';
   let acadPage = 0;
+  let acadVenue = '';
   const ACAD_PAGE_SIZE = 50;
 
   function switchPoolTab(tab) {
@@ -1267,8 +1315,32 @@
       role: document.getElementById('acad-f-role')?.value || '',
       grad_min: document.getElementById('acad-f-grad-min')?.value || '',
       grad_max: document.getElementById('acad-f-grad-max')?.value || '',
+      venue: acadVenue,
       status: document.getElementById('acad-f-status')?.value || '',
     };
+  }
+
+  // 会议/期刊筛选条：点一下会议 → 只看在该会议发过文章的人，方便回溯
+  async function loadAcadVenues() {
+    const bar = document.getElementById('acad-venue-bar');
+    if (!bar) return;
+    try {
+      const data = await (await fetch('/api/academic/venues')).json();
+      const venues = data.venues || [];
+      if (!venues.length) { bar.innerHTML = ''; return; }
+      const chip = (label, val, count) =>
+        `<button class="venue-chip${acadVenue===val?' active':''}" onclick="setAcadVenue('${val.replace(/'/g,"\\'")}')">${esc(label)}${count!=null?` <span class="vc-count">${count}</span>`:''}</button>`;
+      bar.innerHTML = `<span class="filter-label" style="align-self:center;">Venue</span>`
+        + chip('All', '', null)
+        + venues.map(v => chip(v.venue, v.venue, v.people)).join('');
+    } catch(e) { bar.innerHTML = ''; }
+  }
+
+  function setAcadVenue(v) {
+    acadVenue = (acadVenue === v) ? '' : v;
+    acadPage = 0;
+    loadAcadVenues();
+    loadAcademic();
   }
 
   async function loadAcademic() {
@@ -1285,10 +1357,12 @@
           <div class="filter-group"><span class="filter-label">Status</span><select id="acad-f-status" class="filter-select"><option value="">All</option><option value="new">New</option><option value="contacted">Contacted</option><option value="replied">Replied</option><option value="interview">Interview</option></select></div>
           <div class="filter-group"><button class="search-btn" style="margin-top:16px;" onclick="acadPage=0;loadAcademic()">Search</button></div>
         </div>
+        <div id="acad-venue-bar" class="acad-venue-bar"></div>
         <div id="acad-table-wrap"></div>
         <div class="acad-pagination" id="acad-pagination"></div>
       `;
       loadAcademicFilters();
+      loadAcadVenues();
     }
 
     const filters = getAcadFilters();
@@ -1311,10 +1385,11 @@
     if (!people.length) { wrap.innerHTML = '<div class="acad-empty">No academic candidates found. Import from Discover first.</div>'; document.getElementById('acad-pagination').innerHTML = ''; return; }
 
     wrap.innerHTML = `<table><thead><tr>
-      <th>Name</th><th>Role</th><th>Advisor</th><th>Institution</th><th>Research Area</th><th>Grad</th><th>Status</th><th>Email</th><th></th>
+      <th>Name</th><th>Role</th><th>Advisor</th><th>Institution</th><th>Research Area</th><th>Venues</th><th>Grad</th><th>Status</th><th>Email</th><th></th>
     </tr></thead><tbody>${people.map(p => {
       const name = (p.first_name || '') + ' ' + (p.last_name || '');
       const areas = (p.research_area||'').split(/[,;]/).slice(0,3).filter(Boolean).map(a => `<span class="area-chip">${esc(a.trim())}</span>`).join('');
+      const venues = (p.venues||'').split(',').filter(Boolean).map(v => `<span class="venue-tag">${esc(v.trim())}</span>`).join('');
       const status = p.status || 'new';
       const gq = encodeURIComponent(`"${name.trim()}" ${p.institution||''} ${(p.headline||'').split(/[:\|]/)[0].trim().substring(0,40)}`);
       return `<tr>
@@ -1326,6 +1401,7 @@
         <td>${esc(p.advisor||'')}</td>
         <td>${esc(p.institution||'')}</td>
         <td>${areas}</td>
+        <td>${venues}</td>
         <td style="white-space:nowrap;">${p.expected_graduation ? `<strong>${p.expected_graduation}</strong>` : '-'}</td>
         <td><select class="status-select" onchange="updateAcadStatus(${p.id},this.value)">
           <option value="new"${status==='new'?' selected':''}>New</option>

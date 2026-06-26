@@ -250,6 +250,12 @@ def init_db():
     );
 
     CREATE INDEX IF NOT EXISTS idx_snapshots_person ON web_snapshots(person_id, source);
+
+    CREATE TABLE IF NOT EXISTS enrichment_cache (
+        cache_key   TEXT PRIMARY KEY,        -- 如 match_reason:<pid>:<query_hash>
+        value       TEXT NOT NULL DEFAULT '',
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     """)
 
     # FTS5 全文搜索索引（按时效性分列，支持加权排序）
@@ -972,6 +978,15 @@ def search_academic(filters: dict = None, limit: int = 50, offset: int = 0) -> t
         where_clauses.append("research_area LIKE ?")
         params.append(f"%{filters['research_area']}%")
 
+    if filters.get("venue"):
+        ids = _person_ids_for_venue(filters["venue"])
+        if not ids:
+            where_clauses.append("1 = 0")
+        else:
+            ph = ",".join("?" * len(ids))
+            where_clauses.append(f"id IN ({ph})")
+            params.extend(sorted(ids))
+
     if filters.get("status"):
         where_clauses.append("status = ?")
         params.append(filters["status"])
@@ -986,14 +1001,21 @@ def search_academic(filters: dict = None, limit: int = 50, offset: int = 0) -> t
     rows = conn.execute(
         f"""SELECT id, first_name, last_name, email, title, headline, company,
                    institution, advisor, research_area, personal_page,
-                   expected_graduation, status, created_at
+                   expected_graduation, status, created_at,
+                   (SELECT GROUP_CONCAT(pub.venue, '|') FROM publications pub
+                    WHERE pub.person_id = people.id) AS venues
             FROM people WHERE {where_sql}
             ORDER BY created_at DESC LIMIT ? OFFSET ?""",
         params + [limit, offset]
     ).fetchall()
     conn.close()
 
-    return [dict(r) for r in rows], total
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["venues"] = canon_venues(d.get("venues"))
+        out.append(d)
+    return out, total
 
 
 def get_academic_filters() -> dict:
@@ -1030,6 +1052,29 @@ def ensure_tag(name: str, category: str = "custom", conn=None) -> int:
     if close:
         conn.close()
     return tag_id
+
+
+def cache_get(key: str, max_age_days: int = 30) -> str | None:
+    """通用富化缓存读取；超过 max_age_days 视为失效返回 None。"""
+    conn = get_conn()
+    row = conn.execute(
+        f"SELECT value FROM enrichment_cache WHERE cache_key = ? "
+        f"AND created_at > datetime('now', '-{int(max_age_days)} days')",
+        (key,),
+    ).fetchone()
+    conn.close()
+    return row["value"] if row else None
+
+
+def cache_set(key: str, value: str):
+    conn = get_conn()
+    conn.execute(
+        "INSERT OR REPLACE INTO enrichment_cache (cache_key, value, created_at) "
+        "VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (key, value),
+    )
+    conn.commit()
+    conn.close()
 
 
 def add_person_tag(person_id: int, tag_name: str, category: str = "custom", source: str = "manual", conn=None):
@@ -1221,6 +1266,46 @@ def canon_venues(raw: str, limit: int = 4) -> str:
             found.append(hit)
     found.sort(key=lambda v: _VENUE_RANK.get(v, 99))
     return ",".join(found[:limit])
+
+
+def _person_ids_for_venue(venue: str) -> set[int]:
+    """归一化后命中 venue 的所有 person_id（用 canon_venues 同一套映射，口径与徽章一致）。"""
+    target = (venue or "").strip().lower()
+    if not target:
+        return set()
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT DISTINCT person_id, venue FROM publications WHERE TRIM(COALESCE(venue,'')) <> ''"
+    ).fetchall()
+    conn.close()
+    ids = set()
+    for pid, raw in rows:
+        canon = canon_venues(raw)
+        if canon and any(c.strip().lower() == target for c in canon.split(",")):
+            ids.add(pid)
+    return ids
+
+
+def get_venue_counts() -> list[dict]:
+    """学术板块的会议清单：每个归一化顶会下有多少（去重）候选人。按人数倒序、顶会优先。"""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT DISTINCT pub.person_id, pub.venue
+           FROM publications pub JOIN people p ON p.id = pub.person_id
+           WHERE (p.source_type = 'academic' OR p.source_type = 'industry')
+             AND TRIM(COALESCE(pub.venue,'')) <> ''"""
+    ).fetchall()
+    conn.close()
+    sets: dict[str, set] = {}
+    for pid, raw in rows:
+        canon = canon_venues(raw)
+        if not canon:
+            continue
+        for v in canon.split(","):
+            sets.setdefault(v, set()).add(pid)
+    out = [{"venue": v, "people": len(s)} for v, s in sets.items()]
+    out.sort(key=lambda x: (-x["people"], _VENUE_RANK.get(x["venue"], 99)))
+    return out
 
 
 LENS_WHERE = {
