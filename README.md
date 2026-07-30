@@ -51,6 +51,12 @@ GITHUB_TOKEN=ghp_...          # optional, for GitHub enrichment (5000 req/hr)
 ANTHROPIC_API_KEY=sk-ant-...  # optional, for Claude-powered outreach
 ```
 
+Restore the talent pool (private repo — the dump ships with the code):
+
+```bash
+gzip -dc data/exports/talent.sql.gz | sqlite3 data.db
+```
+
 Run:
 
 ```bash
@@ -58,6 +64,18 @@ python app.py
 ```
 
 Open http://localhost:5055
+
+### Refreshing the dump
+
+`data.db` itself is gitignored — commit the text dump instead, so git stores deltas rather than a
+new 34 MB binary blob on every change:
+
+```bash
+sqlite3 data.db "PRAGMA wal_checkpoint(TRUNCATE);"
+sqlite3 data.db .dump | gzip -n9 > data/exports/talent.sql.gz
+```
+
+> The dump contains real candidate PII. This repository must stay **private**.
 
 ## LLM Configuration
 

@@ -52,6 +52,12 @@ GITHUB_TOKEN=ghp_...          # GitHub API，提升调用额度
 ANTHROPIC_API_KEY=sk-ant-...  # Claude API，用于高质量话术生成
 ```
 
+恢复人才库（私有仓库，dump 随代码一起分发）：
+
+```bash
+gzip -dc data/exports/talent.sql.gz | sqlite3 data.db
+```
+
 启动：
 
 ```bash
@@ -59,6 +65,18 @@ python app.py
 ```
 
 访问 http://localhost:5055
+
+### 更新 dump
+
+`data.db` 本身仍然 gitignore——改成提交文本 dump，这样 git 存的是增量，
+而不是每次改动都塞一份全新的 34MB 二进制 blob：
+
+```bash
+sqlite3 data.db "PRAGMA wal_checkpoint(TRUNCATE);"
+sqlite3 data.db .dump | gzip -n9 > data/exports/talent.sql.gz
+```
+
+> dump 含真实候选人隐私数据，本仓库必须保持 **private**。
 
 ## LLM 配置
 

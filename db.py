@@ -44,7 +44,7 @@ def init_db():
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
         first_name    TEXT NOT NULL DEFAULT '',
         last_name     TEXT NOT NULL DEFAULT '',
-        linkedin_url  TEXT NOT NULL UNIQUE,
+        linkedin_url  TEXT UNIQUE,            -- 可空:会议来源候选人多无 LinkedIn(见 migration 001)
         email         TEXT,
         github_url    TEXT,
         title         TEXT,
@@ -1177,6 +1177,22 @@ def set_github_verified(person_id: int, level: str, evidence: str = ""):
     )
     conn.commit()
     conn.close()
+
+
+def update_person_status(person_id: int, status: str) -> bool:
+    """更新候选人 pipeline 状态。合法值见 VALID_STATUSES。"""
+    valid = ("new", "drafted", "contacted", "replied", "interview", "decision", "archived")
+    if status not in valid:
+        raise ValueError(f"invalid status: {status}, must be one of {valid}")
+    conn = get_conn()
+    cur = conn.execute(
+        "UPDATE people SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (status, person_id),
+    )
+    conn.commit()
+    changed = cur.rowcount > 0
+    conn.close()
+    return changed
 
 
 def set_personal_page(person_id: int, url: str):

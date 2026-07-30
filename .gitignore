@@ -4,9 +4,15 @@ __pycache__/
 .env
 .DS_Store
 data.db
-data/
+# data/ 整体不进 git（备份、向量库、日志、原始 xlsx/csv），
+# 唯一例外是人才库的 SQL dump —— 见 README「恢复人才库」
+data/*
+!data/exports/
+data/exports/*
+!data/exports/talent.sql.gz
 *.db-journal
 *.db-wal
+*.db-shm
 .claude/
 
 # Office 临时锁文件
