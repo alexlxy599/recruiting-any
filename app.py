@@ -1282,9 +1282,10 @@ def api_people_insights():
     replied = conn.execute("SELECT COUNT(DISTINCT person_id) FROM history WHERE person_id IS NOT NULL AND status = 'replied'").fetchone()[0]
     interviewing = conn.execute("SELECT COUNT(*) FROM people WHERE status = 'interviewing'").fetchone()[0]
 
+    # 已补充(enriched)不是外联阶段,放进漏斗会打破单调性
+    # (已联系 435 / 已补充 9 → 转化率 4833%),它有独立的"补充进度"卡片
     funnel = [
         {"label": "总库", "value": total},
-        {"label": "已补充", "value": enriched},
         {"label": "已联系", "value": contacted},
         {"label": "已回复", "value": replied},
         {"label": "面试中", "value": interviewing},
