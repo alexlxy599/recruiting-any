@@ -60,6 +60,22 @@ CHINESE_SURNAMES = {
     "mao", "qiu", "qin", "hou", "long", "wan", "gu", "gong", "lai", "meng",
     "xiong", "bai", "yin", "hao", "qian", "shao", "fang", "qiao", "ren",
     "tian", "yao", "zou", "zhan", "tao", "xia", "ling", "ni", "ge",
+    # 补充：ICML 2026 量化批次实测漏检的常见姓
+    "lv", "lyu", "duan", "duanmu", "gan", "bao", "dang", "sha", "chu",
+    "zhuang", "teng", "mu", "miao", "ning", "pang", "qi", "qu", "rong",
+    "ruan", "shan", "sheng", "tong", "wen", "weng", "xin", "xing", "yi",
+    "zang", "zhai", "zuo", "chai", "chi", "cong", "fei", "geng", "guan",
+    "hua", "huo", "ji", "jiao", "kuang", "lei", "lian", "luan", "mei",
+    "nie", "pei", "pu", "sui", "tu", "xiang", "yue", "zhuo", "zong",
+    "ouyang", "sima", "zhuge", "shangguan",
+}
+# 港台/海外拼法：单独一档。这些姓与韩/越/其他族裔重叠严重（Lee/Chang/Ng），
+# 直接并进主表会大量误判，只在明确要覆盖港台候选人时才启用。
+HK_TW_SURNAMES = {
+    "chan", "cheung", "cheng", "chiang", "choi", "chow", "chu", "fong",
+    "ho", "hsieh", "hsu", "hui", "kwok", "kuo", "lam", "lau", "leung",
+    "mak", "ng", "pang", "shek", "sit", "siu", "tsai", "tse", "tsang",
+    "wong", "woo", "yeung", "yip", "yuen",
 }
 
 def has_chinese_surname(name):
