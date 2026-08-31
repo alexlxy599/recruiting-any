@@ -852,6 +852,21 @@
         <div id="wordcloud"></div>
         <script type="application/json" id="wc-data">{{ wordcloud|tojson }}</script>
         {% endif %}
+        {# 主页提取的项目。与下方 GitHub 的「代表项目」是两回事：那个是仓库，
+           这个是候选人在主页上自述的工作，通常带方向标注和论文出处。 #}
+        {% if homepage_profile.projects %}
+        <div class="gh-block-label">主页项目</div>
+        {% for p in homepage_profile.projects[:6] %}
+        <div class="gh-repo">
+          <div class="gh-repo-head">
+            {% if p.url %}<a class="gh-repo-name" href="{{ p.url }}" target="_blank" rel="noopener">{{ p.name }}</a>
+            {% else %}<span class="gh-repo-name">{{ p.name }}</span>{% endif %}
+            {% if p.direction %}<span class="gh-repo-lang">{{ p.direction }}</span>{% endif %}
+          </div>
+          {% if p.description %}<div class="gh-repo-desc">{{ p.description }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
         {% if homepage_profile.collabs %}
         <div class="gh-block-label" style="display:flex;align-items:center;justify-content:space-between;">
           <span>关系网</span>

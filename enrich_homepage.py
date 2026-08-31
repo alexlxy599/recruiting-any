@@ -29,7 +29,11 @@ from verify_github import fetch_homepage, load_env, LLM_BASE, LLM_MODEL, LLM_KEY
 
 load_env()
 
-VERIFIED = ("verified_link", "verified_email", "llm_confirmed", "import_high")
+# 已验证的 GitHub 归属等级 —— 只对这些人做提取,避免把别人的资料归到候选人头上。
+# homepage_link* 是 ingest/discover_github.py 的发现路径:候选人自己主页上挂的
+# GitHub 链接,且 profile 有反向印证(双向链接/邮箱一致/姓名全等)。
+VERIFIED = ("verified_link", "verified_email", "llm_confirmed", "import_high",
+            "homepage_link_strong", "homepage_link")
 EXTRACT_VERSION = 2
 
 
