@@ -30,25 +30,34 @@
    (MAI = Microsoft AI)。是靠库内 #4450 Haoyu Ma 的主页对账才发现的。
    **教训:榜单信息要和库内已知事实交叉验证,不能直接采信。**
 
-## 可靠的结论(不受匹配噪声影响,0 就是 0)
+## 覆盖度结论(匹配修准后的口径)
 
-库内 0 人的 11 个模型族:
+**有人的头部**:Gemini 25 / Doubao·Seed 21 / Cosmos 11 / Llama 10 / Hunyuan 10 /
+Qwen 8 / SAM 6 / Claude 5 / GPT 4 / DeepSeek 4 / Apple FM 4 / Inkling 4
+
+**库内 0 人的 22 个模型族** —— 这是补人的靶子:
 ```
-GPT Image (OpenAI)      Seedance / Seedream (字节)
-GLM (智谱)               LongCat (美团)
-PixVerse (爱诗)          SkyReels (昆仑万维)
-Mistral                 Command (Cohere)
-LTX (Lightricks)        Hermes (Nous Research)
+视频生成整条线几乎全空:Wan(阿里) Seedance(字节) Kling(快手) Vidu(生数)
+                      PixVerse(爱诗) SkyReels(昆仑万维) LTX(Lightricks) VideoPrism(Google)
+图像生成:GPT Image(OpenAI) Imagen(Google) Seedream(字节) FLUX(Black Forest)
+国内 LLM:GLM(智谱) MiMo(小米) ERNIE(百度) Ling·Ring(蚂蚁) LongCat(美团)
+海外:Mistral / Command(Cohere) / Granite(IBM) / Hermes(Nous)
+其他:Lyra(NVIDIA 3D)
 ```
+**最值得注意**:字节 Doubao/Seed 有 21 人,但同公司的 Seedance(视频)与 Seedream(图像)
+是 0;快手 Kling、生数 Vidu、爱诗 PixVerse 这些国内视频生成头部也全是 0。
+**视频生成是整体性空白,不是个别缺口。**
 最值得注意:**字节 Doubao/Seed 有 22 人,但 Seedance(视频)与 Seedream(图像)是 0** —— 
 同一家公司,LLM 线覆盖好,视觉生成线全空。智谱 GLM 在 LLM 榜前十,库内也是 0。
 
 ## 下一步(按顺序)
 
-- [ ] **第一步:把匹配做准**(用户尚未拍板是否先做这步)
-      - 词边界匹配 + 停用词表(挡 individual/vidu 这类)
-      - 关系分级:核心贡献者 / 参与 / 使用 / 评测过 —— 只有前两类算覆盖
-      - 取 20 个已知案例人工验准确率
+- [x] **第一步:匹配已做准** → `ingest/match_models.py`
+      三层过滤:词边界正则 → 负向上下文(挡 azure cosmos)→ 关系分级(core/build/use/mention),
+      只有 core/build 计入覆盖。双窗口:动词模式看宽窗(±160),机构模式看紧窗(±28),
+      否则 "Health AI team at Google ... Gemini" 会把 team 错算给 Gemini。
+      **验证集 34 正 / 5 负,召回 100%、精确率 100%**(`data/raw/model_match_validation.json`)
+      结果:有效归属 249 条,覆盖 49/71 族,过滤掉 use/mention 若干。
 - [ ] 第二步:落库 `models` + `person_models`(person_id, model_family, role,
       tech_stack, evidence, observed_at) —— 是 person_facts 思路的具体实例
 - [ ] 第三步:界面。`/pool` 加「模型」透镜 或 独立 `/models` 覆盖矩阵页
