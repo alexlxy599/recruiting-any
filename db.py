@@ -256,6 +256,38 @@ def init_db():
         value       TEXT NOT NULL DEFAULT '',
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    -- ── 模型视角 ──
+    -- 以「模型」为组织单位查人:"谁做过 Gemini 的后训练" 比 "research_area 含 post-training"
+    -- 精确得多。清单来自 Artificial Analysis 榜单 + 从库内画像反向抽取(榜上没有但库里
+    -- 有人的,如 Cosmos / SAM / MetaCLIP)。粒度到模型族,不到版本 —— 榜单原始条目大量是
+    -- 推理档位变体(Claude Opus 5 的 max/high/low),对招聘无意义。
+    CREATE TABLE IF NOT EXISTS models (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        family      TEXT NOT NULL UNIQUE,    -- 模型族名,如 Gemini / Cosmos / Doubao / Seed
+        org         TEXT NOT NULL DEFAULT '',
+        category    TEXT NOT NULL DEFAULT '',-- LLM / Video / Image / World Model / ...
+        source      TEXT NOT NULL DEFAULT '',-- leaderboard | lab_only
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- 人与模型的归属。多对多,且带角色 —— "核心贡献者"和"实习期间参与"是两回事,
+    -- 只存布尔关联会让人打开某个模型看到一堆人却分不出谁是关键先生。
+    -- evidence 存判定依据的原文片段,observed_at 记录事实的观察时间(画像会过期)。
+    CREATE TABLE IF NOT EXISTS person_models (
+        person_id   INTEGER NOT NULL,
+        model_id    INTEGER NOT NULL,
+        role        TEXT NOT NULL DEFAULT 'mention',  -- core|build|use|mention
+        tech_stack  TEXT NOT NULL DEFAULT '',         -- 预训练/后训练/RL/多模态/...
+        evidence    TEXT NOT NULL DEFAULT '',
+        source_field TEXT NOT NULL DEFAULT '',        -- 证据来自哪个字段:画像/项目/notes
+        observed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (person_id, model_id),
+        FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE,
+        FOREIGN KEY (model_id)  REFERENCES models(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_pm_model ON person_models(model_id, role);
+    CREATE INDEX IF NOT EXISTS idx_pm_person ON person_models(person_id);
     """)
 
     # FTS5 全文搜索索引（按时效性分列，支持加权排序）
@@ -1387,3 +1419,93 @@ def get_badge_fields(person_ids: list[int]) -> dict[int, dict]:
         d["venues"] = canon_venues(d.get("venues"))
         result[r["id"]] = d
     return result
+
+
+# ── 模型视角 ──
+# 覆盖度口径:只有 core/build 算「这个模型的人」。use/mention 是使用者或顺带提及,
+# 算进去会让覆盖度虚高(实测 "Expert in Gemini/ChatGPT" 这类占了近三分之一)。
+MODEL_COUNTED_ROLES = ("core", "build")
+
+
+def upsert_model(family: str, org: str = "", category: str = "", source: str = "") -> int:
+    conn = get_conn()
+    conn.execute(
+        """INSERT INTO models (family, org, category, source) VALUES (?,?,?,?)
+           ON CONFLICT(family) DO UPDATE SET
+             org=excluded.org, category=excluded.category,
+             source=excluded.source, updated_at=CURRENT_TIMESTAMP""",
+        (family, org, category, source))
+    conn.commit()
+    mid = conn.execute("SELECT id FROM models WHERE family=?", (family,)).fetchone()[0]
+    conn.close()
+    return mid
+
+
+def link_person_model(person_id: int, model_id: int, role: str, evidence: str = "",
+                      tech_stack: str = "", source_field: str = "", conn=None):
+    """写归属。同一对 (person, model) 只保留一条,重跑时按最新判定覆盖。"""
+    own = conn is None
+    conn = conn or get_conn()
+    conn.execute(
+        """INSERT INTO person_models
+             (person_id, model_id, role, tech_stack, evidence, source_field, observed_at)
+           VALUES (?,?,?,?,?,?, CURRENT_TIMESTAMP)
+           ON CONFLICT(person_id, model_id) DO UPDATE SET
+             role=excluded.role, tech_stack=excluded.tech_stack,
+             evidence=excluded.evidence, source_field=excluded.source_field,
+             observed_at=CURRENT_TIMESTAMP""",
+        (person_id, model_id, role, tech_stack, evidence, source_field))
+    if own:
+        conn.commit()
+        conn.close()
+
+
+def get_model_coverage(counted_only: bool = True):
+    """每个模型族在库内有多少人。返回含 0 人的族 —— 空白才是补人的靶子。"""
+    conn = get_conn()
+    ph = ",".join("?" * len(MODEL_COUNTED_ROLES))
+    cond = f"AND pm.role IN ({ph})" if counted_only else ""
+    args = list(MODEL_COUNTED_ROLES) if counted_only else []
+    rows = conn.execute(f"""
+        SELECT m.id, m.family, m.org, m.category, m.source,
+               COUNT(pm.person_id) AS n,
+               SUM(CASE WHEN pm.role='core' THEN 1 ELSE 0 END) AS n_core
+        FROM models m
+        LEFT JOIN person_models pm ON pm.model_id = m.id {cond}
+        GROUP BY m.id ORDER BY n DESC, m.family""", args).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_model_people(family: str, roles=MODEL_COUNTED_ROLES, tech_stack: str = ""):
+    """某个模型族下的人。tech_stack 传入则再按技术栈过滤。"""
+    conn = get_conn()
+    ph = ",".join("?" * len(roles))
+    sql = f"""SELECT p.id, p.first_name, p.last_name, p.company, p.institution,
+                     p.title, p.email, p.github_url, p.personal_page,
+                     pm.role, pm.tech_stack, pm.evidence, pm.source_field, pm.observed_at
+              FROM person_models pm
+              JOIN models m ON m.id = pm.model_id
+              JOIN people p ON p.id = pm.person_id
+              WHERE m.family = ? AND pm.role IN ({ph})"""
+    args = [family] + list(roles)
+    if tech_stack:
+        sql += " AND pm.tech_stack LIKE ?"
+        args.append(f"%{tech_stack}%")
+    sql += " ORDER BY CASE pm.role WHEN 'core' THEN 0 ELSE 1 END, p.id"
+    rows = conn.execute(sql, args).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_person_models(person_id: int):
+    """某人参与过哪些模型 —— 用在候选人详情页。"""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT m.family, m.org, m.category, pm.role, pm.tech_stack, pm.evidence
+           FROM person_models pm JOIN models m ON m.id = pm.model_id
+           WHERE pm.person_id = ?
+           ORDER BY CASE pm.role WHEN 'core' THEN 0 WHEN 'build' THEN 1 ELSE 2 END""",
+        (person_id,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]

@@ -56,10 +56,17 @@ Qwen 8 / SAM 6 / Claude 5 / GPT 4 / DeepSeek 4 / Apple FM 4 / Inkling 4
       三层过滤:词边界正则 → 负向上下文(挡 azure cosmos)→ 关系分级(core/build/use/mention),
       只有 core/build 计入覆盖。双窗口:动词模式看宽窗(±160),机构模式看紧窗(±28),
       否则 "Health AI team at Google ... Gemini" 会把 team 错算给 Gemini。
-      **验证集 34 正 / 5 负,召回 100%、精确率 100%**(`data/raw/model_match_validation.json`)
-      结果:有效归属 249 条,覆盖 49/71 族,过滤掉 use/mention 若干。
-- [ ] 第二步:落库 `models` + `person_models`(person_id, model_family, role,
-      tech_stack, evidence, observed_at) —— 是 person_facts 思路的具体实例
+      **验证集 35 正 / 4 负,召回 100%、精确率 100%**(`data/raw/model_match_validation.json` —— 含 person_id,按 .gitignore 规则不进版本库)
+      结果:249 条归属,其中 core 47 / build 97 计入覆盖,覆盖 49/71 族。
+
+      **标注踩过的坑**:我在验证集上标错了 5 次,方向完全一致 —— 都是看截断的
+      证据片段就把真阳性判成负例(Cosmos Policy、ByteDance Seed 三人、Vidu)。
+      每次都是「匹配器对、我的标签错」。**标注必须回到完整上下文与来源记录。**
+- [x] **第二步:已落库** `models`(71 行)+ `person_models`(249 行)
+      schema 在 db.py init_db();操作函数 upsert_model / link_person_model /
+      get_model_coverage / get_model_people / get_person_models
+      同步脚本 `ingest/sync_models.py`(全量重建,匹配器可重跑)
+      技术栈从证据文本推断,**推不出就留空,不猜**(144 条里只有 64 条推得出)
 - [ ] 第三步:界面。`/pool` 加「模型」透镜 或 独立 `/models` 覆盖矩阵页
 
 ## 平行进行中的任务
@@ -78,3 +85,10 @@ Qwen 8 / SAM 6 / Claude 5 / GPT 4 / DeepSeek 4 / Apple FM 4 / Inkling 4
 - **主页会留过期文本**:不少人主页还写着「正在找工作」但早已入职。
   处理原则:以库内现职为准 + 标注「主页过期」,不当求职信号。
 - **姓名对不上**:已发现 2 例(#4331、#4743)疑似主页挂错人,已标 ⚠ 未覆盖库内姓名。
+
+## 文件位置约定
+
+- `config/model_registry.json` —— 模型清单。**纯配置无 PII,进版本库**
+- `data/raw/model_matches.json` —— 匹配结果(含 person_id 与证据原文),gitignore
+- `data/raw/model_match_validation.json` —— 人工验证集,gitignore
+- 库内数据随 `data/exports/talent.sql.gz` 一并版本化

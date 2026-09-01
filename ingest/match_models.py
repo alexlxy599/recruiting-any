@@ -22,7 +22,7 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import db
 
-REG = "data/raw/model_registry.json"
+REG = "config/model_registry.json"   # 清单是配置,不含 PII,进版本库
 OUT = "data/raw/model_matches.json"
 
 # 别名。用 \b 词边界,故短名(Wan/Step/Muse)必须配限定词,否则误伤
@@ -77,7 +77,7 @@ ROLE_RULES = [
  ("core", r"(core (contributor|author)|核心(贡献者|作者)|主导|领导|创建者|creator of|"
           r"I led|we led|led the (development|team)|(paper )?lead author|first author|一作|"
           r"lead(ing)?[\w\s\-]{0,24}(development|research|effort|team)|发明|提出了|\"title\"\s*:\s*\"[^\"]{0,30}(lead|head|director|负责人)\b)"),
- ("build", r"(work(ing)? on|contribut(e|ing|ed|or) to|参与(研发|开发)?|负责|发布|we release|"
+ ("build", r"(work(ing)? on|contribut(e|ing|ed|or) to|参与(研发|开发)?|负责|we release|"
            r"I propose|member of" + _M + r"team|研发|做过|开发了|part of|"
            # 机构模式:X Team / X Lab / (X) / @ X —— 在这个模型的组里
            r"part of)"),
@@ -89,9 +89,15 @@ ROLE_RULES = [
 # organization/lab 是我们自己提取 schema 里的字段名 —— 模型名出现在这两个字段的值里,
 # 等于「这个模型就是他的所属组织」,是最硬的归属证据(例:#4444 的
 # "title":"Post-train Lead","organization":"Apple Foundation Models")。
-INSTITUTIONAL = r"(team|lab|group|组|团队|\)|@|\"(organization|lab)\"\s*:)"
+# 裸的 ) 和 @ 在 JSON 文本里到处都是,不能算信号。
+# NEAR_INST:模型名紧邻 Team/Lab/组 这类实词。
+# BEFORE_INST:模型名正好是 organization/lab 字段的值 —— 只看模型名之前的文本,
+#             这是最硬的归属证据(例:"organization": "ByteDance Seed")。
+NEAR_INST = r"(team|lab|group|组|团队)"
+BEFORE_INST = r"\"(organization|lab|company)\"\s*:\s*\"[^\"]{0,4}$"
 COUNTED = ("core", "build")
-WIN = 160    # 动词模式:宽窗口
+WIN = 60     # 动词模式:窗口收紧 —— 关系词必须靠近模型名,否则
+             # "contributing to open source ... Claude" 会被误算成参与 Claude
 NEAR = 28    # 机构模式:紧窗口,只看模型名前后一小段
 
 
@@ -101,20 +107,30 @@ def build_corpus(conn):
     for r in conn.execute("SELECT person_id, json FROM extractions WHERE source='homepage'"):
         if r[1]: c[r[0]].append(("画像", r[1]))
     for r in conn.execute("SELECT person_id, name, COALESCE(description,'') FROM projects"):
-        c[r[0]].append(("项目", f"{r[1]} {r[2]}"))
+        # 项目名与描述分开存:模型名出现在**项目名**里 = 这是他做的东西,
+        # 是最强的归属证据(MAI-Image-2.5 / BitNet v2 / Cosmos Policy 都属此类)。
+        # 出现在描述里则弱得多(可能只是"基于X"),按普通文本判。
+        c[r[0]].append(("项目名", r[1] or ""))
+        if r[2]:
+            c[r[0]].append(("项目描述", r[2]))
     for r in conn.execute("SELECT id, COALESCE(research_area,''), COALESCE(headline,''), COALESCE(notes,'') FROM people"):
         for lbl, t in (("方向", r[1]), ("headline", r[2]), ("notes", r[3])):
             if t: c[r[0]].append((lbl, t))
     return c
 
 
-def classify(ctx, near):
-    """ctx = 宽窗口(判动词),near = 紧贴模型名的片段(判机构归属)。"""
+def classify(ctx, near, before, field=""):
+    """三段窗口各判各的:
+       ctx    动词模式(work on / 负责),±60
+       near   紧邻实词(Team/Lab/组),±28
+       before 模型名之前的文本,判它是不是 organization 字段的值
+    """
+    if field == "项目名":
+        return "build"          # 模型名就是他的项目名
     for role, pat in ROLE_RULES:
         if re.search(pat, ctx, re.I):
             return role
-    # 动词没命中,再看模型名是否直接嵌在 Team/Lab/组 里
-    if re.search(INSTITUTIONAL, near, re.I):
+    if re.search(BEFORE_INST, before, re.I) or re.search(NEAR_INST, near, re.I):
         return "build"
     return "mention"
 
@@ -144,9 +160,10 @@ def main():
                         s, e = m.start(), m.end()
                         ctx = txt[max(0, s - WIN):e + WIN]
                         near = txt[max(0, s - NEAR):e + NEAR]
+                        before = txt[max(0, s - 40):s]
                         if any(re.search(n, ctx, re.I) for n in negs):
                             continue                       # 同名别物,跳过
-                        role = classify(ctx, near)
+                        role = classify(ctx, near, before, field)
                         rank = {"core": 0, "build": 1, "use": 2, "mention": 3}[role]
                         if best is None or rank < best[0]:
                             best = (rank, role, re.sub(r"\s+", " ", ctx).strip()[:200], field)
